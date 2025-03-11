@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Location Lead Dashboard</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+  <style>
+    .dashboard-header {
+      background: #141824;
+      border-bottom: 2px solid #2B3A5C;
+    }
+    .card-gradient-1 {
+      background: linear-gradient(135deg, rgba(43, 58, 92, 0.8) 0%, rgba(20, 24, 36, 0.8) 100%);
+      border-left: 4px solid #41C9C7;
+    }
+    .card-gradient-2 {
+      background: linear-gradient(135deg, rgba(43, 58, 92, 0.8) 0%, rgba(20, 24, 36, 0.8) 100%);
+      border-left: 4px solid #41C9C7;
+    }
+    .card-gradient-3 {
+      background: linear-gradient(135deg, rgba(43, 58, 92, 0.8) 0%, rgba(20, 24, 36, 0.8) 100%);
+      border-left: 4px solid #41C9C7;
+    }
+    .company-column {
+      width: 250px !important;
+      max-width: 250px !important;
+      word-wrap: break-word;
+      font-weight: bold;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .address-column {
+      max-width: 170px !important;
+      word-wrap: break-word;
+    }
+    .jobs-column {
+      width: 90px;
+    }
+    .activity-column {
+      width: 110px;
+    }
+    .timeframe-column {
+      width: 110px;
+    }
+    .summary-column {
+      width: 400px !important;
+      min-width: 400px !important;
+      word-wrap: break-word;
+    }
+    .about-column {
+      min-width: 250px;
+      max-width: 300px;
+      word-wrap: break-word;
+    }
+    .logo {
+      height: 60px;
+      margin-right: 15px;
+    }
+    .btn-encodeset {
+      background-color: #2B3A5C;
+      border: 1px solid #41C9C7;
+    }
+    .btn-encodeset:hover {
+      background-color: #1F2D4E;
+    }
+    .btn-danger {
+      background-color: #E53E3E;
+      border: 1px solid #E53E3E;
+    }
+    .btn-danger:hover {
+      background-color: #C53030;
+    }
+    .progress-bar {
+      background-color: #41C9C7;
+    }
+    .table-header {
+      background-color: #141824;
+      color: white;
+    }
+    body {
+      background-color: #F0F4F8;
+    }
+    table {
+      table-layout: fixed !important;
+    }
+    .truncate-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="dashboard-header text-white shadow-lg">
+    <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+      <div class="flex items-center">
+        <img src="/images/encodeset-logo.png" alt="EnCodeSet Logo" class="logo">
+        <div>
+          <h1 class="text-3xl font-bold">Location Lead Dashboard</h1>
+          <p class="text-gray-300">Track and monitor leads across different states</p>
+        </div>
+      </div>
+      <div class="flex space-x-4">
+        <% if (isLoggedIn) { %>
+          <a href="/settings" class="px-4 py-2 rounded-md btn-encodeset hover:btn-encodeset transition duration-150">
+            <i class="fas fa-cog mr-2"></i> Settings
+          </a>
+          <a href="/logout" class="px-4 py-2 rounded-md btn-danger hover:btn-danger transition duration-150">
+            <i class="fas fa-sign-out-alt mr-2"></i> Logout
+          </a>
+        <% } else { %>
+          <a href="/settings" class="px-4 py-2 rounded-md btn-encodeset hover:btn-encodeset transition duration-150">
+            <i class="fas fa-cog mr-2"></i> Settings
+          </a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+  
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 bg-white bg-opacity-90 p-4 rounded-lg shadow">
+      <form action="/filter" method="get" class="flex items-center space-x-4">
+        <label for="state-select" class="text-gray-700 font-medium">Filter by State:</label>
+        <select 
+          id="state-select" 
+          name="state" 
+          class="form-select block w-64 mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+          onchange="this.form.submit()"
+        >
+          <option value="All States" <%= !selectedState || selectedState === 'All States' ? 'selected' : '' %>>All States</option>
+          <% states.forEach(function(state) { %>
+            <option value="<%= state %>" <%= selectedState === state ? 'selected' : '' %>>
+              <%= state %>
+            </option>
+          <% }); %>
+        </select>
+      </form>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="p-6 rounded-lg shadow-md card-gradient-1 text-white bg-opacity-90">
+        <h3 class="text-xl font-bold mb-2">Total Leads</h3>
+        <p class="text-3xl"><%= totalLeads %></p>
+      </div>
+      <div class="p-6 rounded-lg shadow-md card-gradient-2 text-white bg-opacity-90">
+        <h3 class="text-xl font-bold mb-2">Total Estimated Jobs</h3>
+        <p class="text-3xl"><%= totalJobs %></p>
+      </div>
+      <div class="p-6 rounded-lg shadow-md card-gradient-3 text-white bg-opacity-90">
+        <h3 class="text-xl font-bold mb-2">Activity Types</h3>
+        <p class="text-3xl"><%= totalActivityTypes %></p>
+      </div>
+    </div>
+
+    <div class="bg-white shadow-md rounded-lg bg-opacity-90">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-2xl font-bold text-gray-800">Activity Type Distribution</h2>
+      </div>
+      <div class="p-6">
+        <% Object.keys(activityCounts).forEach(function(type) { %>
+          <div class="mb-4">
+            <div class="flex justify-between text-sm mb-1">
+              <span class="font-medium"><%= type %></span>
+              <span><%= activityCounts[type] %> leads</span>
+            </div>
+            <div class="bg-gray-200 rounded-full h-2.5">
+              <div 
+                class="progress-bar rounded-full h-2.5" 
+                style="width: <%= (activityCounts[type] / totalLeads * 100).toFixed(2) %>%"
+              ></div>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+
+    <div class="mt-8 bg-white shadow-md rounded-lg overflow-hidden bg-opacity-90">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-2xl font-bold text-gray-800">Leads Table</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full table-fixed">
+          <thead class="table-header">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider company-column">Company</th>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider address-column">Address</th>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider jobs-column">Est. Jobs</th>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider activity-column">Activity Type</th>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider timeframe-column">Timeframe</th>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider summary-column">General Lead Summary</th>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider about-column">About</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            <% leads.slice(0, 50).forEach(function(lead) { %>
+              <tr>
+                <td class="px-6 py-4 text-sm font-bold company-column truncate-text" title="<%= lead.Company || 'N/A' %>"><%= lead.Company || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm address-column"><%= lead.Address || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm jobs-column"><%= lead['Estimated New Jobs'] || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm activity-column"><%= lead['Activity Type'] || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm timeframe-column"><%= lead['Timeframe'] || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm summary-column"><%= lead['General Lead Summary'] || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm about-column"><%= lead['About'] || 'N/A' %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
