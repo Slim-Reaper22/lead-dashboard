@@ -43,7 +43,7 @@
       width: 110px;
     }
     .timeframe-column {
-      width: 150px;
+      width: 110px;
     }
     .summary-column {
       width: 400px !important;
@@ -103,6 +103,10 @@
       font-size: 0.65rem !important; 
       text-transform: uppercase !important;
       font-weight: 500 !important;
+    }
+    .chart-container {
+      height: 350px;
+      position: relative;
     }
   </style>
 </head>
@@ -192,25 +196,40 @@
       </div>
     </div>
 
-    <div class="bg-white shadow-md rounded-lg bg-opacity-90">
-      <div class="p-6 border-b border-gray-200">
-        <h2 class="text-2xl font-bold text-gray-800">Activity Type Distribution</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <!-- Activity Type Distribution Chart -->
+      <div class="bg-white shadow-md rounded-lg bg-opacity-90">
+        <div class="p-6 border-b border-gray-200">
+          <h2 class="text-2xl font-bold text-gray-800">Activity Type Distribution</h2>
+        </div>
+        <div class="p-6">
+          <% Object.keys(activityCounts).forEach(function(type) { %>
+            <div class="mb-4">
+              <div class="flex justify-between text-sm mb-1">
+                <span class="font-medium"><%= type %></span>
+                <span><%= activityCounts[type] %> leads</span>
+              </div>
+              <div class="bg-gray-200 rounded-full h-2.5">
+                <div 
+                  class="progress-bar rounded-full h-2.5" 
+                  style="width: <%= (activityCounts[type] / totalLeads * 100).toFixed(2) %>%"
+                ></div>
+              </div>
+            </div>
+          <% }); %>
+        </div>
       </div>
-      <div class="p-6">
-        <% Object.keys(activityCounts).forEach(function(type) { %>
-          <div class="mb-4">
-            <div class="flex justify-between text-sm mb-1">
-              <span class="font-medium"><%= type %></span>
-              <span><%= activityCounts[type] %> leads</span>
-            </div>
-            <div class="bg-gray-200 rounded-full h-2.5">
-              <div 
-                class="progress-bar rounded-full h-2.5" 
-                style="width: <%= (activityCounts[type] / totalLeads * 100).toFixed(2) %>%"
-              ></div>
-            </div>
+
+      <!-- State Distribution Chart -->
+      <div class="bg-white shadow-md rounded-lg bg-opacity-90">
+        <div class="p-6 border-b border-gray-200">
+          <h2 class="text-2xl font-bold text-gray-800">Top 10 States</h2>
+        </div>
+        <div class="p-6">
+          <div class="chart-container">
+            <canvas id="stateDistributionChart"></canvas>
           </div>
-        <% }); %>
+        </div>
       </div>
     </div>
 
@@ -226,7 +245,7 @@
               <th class="px-6 py-3 text-left table-header-smaller tracking-wider company-column">Company</th>
               <th class="px-6 py-3 text-left table-header-smaller tracking-wider about-column">About</th>
               <th class="px-6 py-3 text-left table-header-smaller tracking-wider summary-column">General Lead Summary</th>
-              <th class="px-6 py-3 text-left table-header-smaller tracking-wider address-column">Lead Address</th>
+              <th class="px-6 py-3 text-left table-header-smaller tracking-wider address-column">Location</th>
               <th class="px-6 py-3 text-left table-header-smaller tracking-wider activity-column">Activity Type</th>
               <th class="px-6 py-3 text-left table-header-smaller tracking-wider timeframe-column">Timeframe</th>
               <th class="px-6 py-3 text-left table-header-smaller tracking-wider jobs-column">Est. Jobs</th>
@@ -250,5 +269,91 @@
       </div>
     </div>
   </div>
+
+  <script>
+    // Create the state distribution chart
+    document.addEventListener('DOMContentLoaded', function() {
+      // Get state count data
+      const stateData = {};
+      
+      <% 
+      // Calculate state counts
+      const stateCounts = {};
+      states.forEach(state => { stateCounts[state] = 0; });
+      
+      leads.forEach(lead => {
+        if (lead.Address) {
+          states.forEach(state => {
+            if (lead.Address.toLowerCase().includes(state.toLowerCase())) {
+              stateCounts[state] = (stateCounts[state] || 0) + 1;
+            }
+          });
+        }
+      });
+      
+      // Sort states by count (descending)
+      const sortedStates = Object.keys(stateCounts)
+        .filter(state => stateCounts[state] > 0)
+        .sort((a, b) => stateCounts[b] - stateCounts[a])
+        .slice(0, 10); // Get top 10 states
+      %>
+      
+      // Prepare data for chart
+      const stateLabels = [<% sortedStates.forEach((state, index) => { %>'<%= state %>'<%= index < sortedStates.length - 1 ? ',' : '' %><% }); %>];
+      const stateCounts = [<% sortedStates.forEach((state, index) => { %><%= stateCounts[state] %><%= index < sortedStates.length - 1 ? ',' : '' %><% }); %>];
+      
+      // Create chart
+      const ctx = document.getElementById('stateDistributionChart').getContext('2d');
+      const stateChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: stateLabels,
+          datasets: [{
+            label: 'Number of Leads',
+            data: stateCounts,
+            backgroundColor: '#41C9C7',
+            borderColor: '#2B3A5C',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',  // Creates horizontal bars
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `Leads: ${context.raw}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              ticks: {
+                font: {
+                  size: 12
+                }
+              }
+            },
+            x: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Number of Leads',
+                font: {
+                  size: 14
+                }
+              }
+            }
+          }
+        }
+      });
+    });
+  </script>
 </body>
 </html>
