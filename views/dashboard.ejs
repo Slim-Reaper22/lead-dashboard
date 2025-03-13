@@ -25,15 +25,16 @@
       border-left: 4px solid #41C9C7;
     }
     .company-column {
-      width: 250px !important;
-      max-width: 250px !important;
-      word-wrap: break-word;
+      width: 210px !important;
+      max-width: 210px !important;
+      word-wrap: break-word !important;
       font-weight: bold;
-      /* Removed overflow: hidden and text-overflow: ellipsis to allow text wrapping */
+      white-space: normal !important;
     }
     .address-column {
-      max-width: 130px !important; /* Reduced from 170px to 130px */
-      word-wrap: break-word;
+      width: 130px !important;
+      max-width: 130px !important;
+      word-wrap: break-word !important;
     }
     .jobs-column {
       width: 90px;
@@ -50,9 +51,10 @@
       word-wrap: break-word;
     }
     .about-column {
-      min-width: 300px; /* Increased from 250px to 300px */
-      max-width: 350px; /* Increased from 300px to 350px */
-      word-wrap: break-word;
+      width: 350px !important;
+      min-width: 300px !important;
+      max-width: 350px !important;
+      word-wrap: break-word !important;
     }
     .logo {
       height: 60px;
@@ -86,8 +88,13 @@
       table-layout: fixed !important;
     }
     .wrap-text {
-      white-space: normal;
-      word-wrap: break-word;
+      white-space: normal !important;
+      word-wrap: break-word !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+    }
+    .address-with-breaks {
+      white-space: pre-line !important;
     }
   </style>
 </head>
@@ -220,7 +227,7 @@
             <% leads.slice(0, 50).forEach(function(lead) { %>
               <tr>
                 <td class="px-6 py-4 text-sm font-bold company-column wrap-text"><%= lead.Company || 'N/A' %></td>
-                <td class="px-6 py-4 text-sm address-column wrap-text"><%= lead.Address || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm address-column address-with-breaks"><%- (lead.Address || 'N/A').replace(/,\s*/g, ',\n') %></td>
                 <td class="px-6 py-4 text-sm jobs-column"><%= lead['Estimated New Jobs'] || 'N/A' %></td>
                 <td class="px-6 py-4 text-sm activity-column"><%= lead['Activity Type'] || 'N/A' %></td>
                 <td class="px-6 py-4 text-sm timeframe-column"><%= lead['Timeframe'] || 'N/A' %></td>
