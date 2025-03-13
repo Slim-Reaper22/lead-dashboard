@@ -25,8 +25,8 @@
       border-left: 4px solid #41C9C7;
     }
     .company-column {
-      width: 210px !important;
-      max-width: 210px !important;
+      width: 250px !important;
+      max-width: 250px !important;
       word-wrap: break-word !important;
       font-weight: bold;
       white-space: normal !important;
@@ -43,7 +43,7 @@
       width: 110px;
     }
     .timeframe-column {
-      width: 110px;
+      width: 150px;
     }
     .summary-column {
       width: 400px !important;
@@ -95,6 +95,14 @@
     }
     .address-with-breaks {
       white-space: pre-line !important;
+    }
+    .table-text-smaller {
+      font-size: 0.65rem !important; /* Extra small text, smaller than Tailwind's text-xs */
+    }
+    .table-header-smaller {
+      font-size: 0.65rem !important; 
+      text-transform: uppercase !important;
+      font-weight: 500 !important;
     }
   </style>
 </head>
@@ -214,25 +222,27 @@
         <table class="w-full table-fixed">
           <thead class="table-header">
             <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider company-column">Company</th>
-              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider address-column">Address</th>
-              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider jobs-column">Est. Jobs</th>
-              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider activity-column">Activity Type</th>
-              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider timeframe-column">Timeframe</th>
-              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider summary-column">General Lead Summary</th>
-              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider about-column">About</th>
+              <!-- Reordered columns as specified -->
+              <th class="px-6 py-3 text-left table-header-smaller tracking-wider company-column">Company</th>
+              <th class="px-6 py-3 text-left table-header-smaller tracking-wider about-column">About</th>
+              <th class="px-6 py-3 text-left table-header-smaller tracking-wider summary-column">General Lead Summary</th>
+              <th class="px-6 py-3 text-left table-header-smaller tracking-wider address-column">Lead Address</th>
+              <th class="px-6 py-3 text-left table-header-smaller tracking-wider activity-column">Activity Type</th>
+              <th class="px-6 py-3 text-left table-header-smaller tracking-wider timeframe-column">Timeframe</th>
+              <th class="px-6 py-3 text-left table-header-smaller tracking-wider jobs-column">Est. Jobs</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
             <% leads.slice(0, 50).forEach(function(lead) { %>
               <tr>
-                <td class="px-6 py-4 text-sm font-bold company-column wrap-text"><%= lead.Company || 'N/A' %></td>
-                <td class="px-6 py-4 text-sm address-column address-with-breaks"><%- (lead.Address || 'N/A').replace(/,\s*/g, ',\n') %></td>
-                <td class="px-6 py-4 text-sm jobs-column"><%= lead['Estimated New Jobs'] || 'N/A' %></td>
-                <td class="px-6 py-4 text-sm activity-column"><%= lead['Activity Type'] || 'N/A' %></td>
-                <td class="px-6 py-4 text-sm timeframe-column"><%= lead['Timeframe'] || 'N/A' %></td>
-                <td class="px-6 py-4 text-sm summary-column wrap-text"><%= lead['General Lead Summary'] || 'N/A' %></td>
-                <td class="px-6 py-4 text-sm about-column wrap-text"><%= lead['About'] || 'N/A' %></td>
+                <!-- Reordered columns as specified -->
+                <td class="px-6 py-4 font-bold company-column wrap-text table-text-smaller"><%= lead.Company || 'N/A' %></td>
+                <td class="px-6 py-4 about-column wrap-text table-text-smaller"><%= lead['About'] || 'N/A' %></td>
+                <td class="px-6 py-4 summary-column wrap-text table-text-smaller"><%= lead['General Lead Summary'] || 'N/A' %></td>
+                <td class="px-6 py-4 address-column address-with-breaks table-text-smaller"><%- (lead.Address || 'N/A').replace(/,\s*/g, ',\n') %></td>
+                <td class="px-6 py-4 activity-column table-text-smaller"><%= lead['Activity Type'] || 'N/A' %></td>
+                <td class="px-6 py-4 timeframe-column table-text-smaller"><%= lead['Timeframe'] || 'N/A' %></td>
+                <td class="px-6 py-4 jobs-column table-text-smaller"><%= lead['Estimated New Jobs'] || 'N/A' %></td>
               </tr>
             <% }); %>
           </tbody>
