@@ -29,11 +29,10 @@
       max-width: 250px !important;
       word-wrap: break-word;
       font-weight: bold;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      /* Removed overflow: hidden and text-overflow: ellipsis to allow text wrapping */
     }
     .address-column {
-      max-width: 170px !important;
+      max-width: 130px !important; /* Reduced from 170px to 130px */
       word-wrap: break-word;
     }
     .jobs-column {
@@ -51,8 +50,8 @@
       word-wrap: break-word;
     }
     .about-column {
-      min-width: 250px;
-      max-width: 300px;
+      min-width: 300px; /* Increased from 250px to 300px */
+      max-width: 350px; /* Increased from 300px to 350px */
       word-wrap: break-word;
     }
     .logo {
@@ -86,10 +85,9 @@
     table {
       table-layout: fixed !important;
     }
-    .truncate-text {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .wrap-text {
+      white-space: normal;
+      word-wrap: break-word;
     }
   </style>
 </head>
@@ -122,22 +120,46 @@
   
   <div class="container mx-auto px-4 py-8">
     <div class="mb-6 bg-white bg-opacity-90 p-4 rounded-lg shadow">
-      <form action="/filter" method="get" class="flex items-center space-x-4">
-        <label for="state-select" class="text-gray-700 font-medium">Filter by State:</label>
-        <select 
-          id="state-select" 
-          name="state" 
-          class="form-select block w-64 mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-          onchange="this.form.submit()"
-        >
-          <option value="All States" <%= !selectedState || selectedState === 'All States' ? 'selected' : '' %>>All States</option>
-          <% states.forEach(function(state) { %>
-            <option value="<%= state %>" <%= selectedState === state ? 'selected' : '' %>>
-              <%= state %>
-            </option>
-          <% }); %>
-        </select>
-      </form>
+      <div class="flex flex-col md:flex-row md:items-center gap-4">
+        <!-- State Filter -->
+        <form action="/filter" method="get" class="flex items-center flex-grow space-x-4">
+          <label for="state-select" class="text-gray-700 font-medium whitespace-nowrap">Filter by State:</label>
+          <select 
+            id="state-select" 
+            name="state" 
+            class="form-select block w-full md:w-64 mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            onchange="this.form.submit()"
+          >
+            <option value="All States" <%= !selectedState || selectedState === 'All States' ? 'selected' : '' %>>All States</option>
+            <% states.forEach(function(state) { %>
+              <option value="<%= state %>" <%= selectedState === state ? 'selected' : '' %>>
+                <%= state %>
+              </option>
+            <% }); %>
+          </select>
+        </form>
+
+        <!-- Company Search Bar -->
+        <form action="/search" method="get" class="flex items-center flex-grow space-x-4">
+          <label for="company-search" class="text-gray-700 font-medium whitespace-nowrap">Search Company:</label>
+          <div class="relative w-full">
+            <input 
+              type="text" 
+              id="company-search" 
+              name="company" 
+              placeholder="Enter company name..." 
+              value="<%= searchTerm || '' %>"
+              class="form-input block w-full rounded-md border-gray-300 pl-10 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            >
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <i class="fas fa-search text-gray-400"></i>
+            </div>
+            <button type="submit" class="absolute inset-y-0 right-0 px-3 flex items-center bg-blue-500 text-white rounded-r-md hover:bg-blue-600">
+              Search
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -197,13 +219,13 @@
           <tbody class="divide-y divide-gray-200">
             <% leads.slice(0, 50).forEach(function(lead) { %>
               <tr>
-                <td class="px-6 py-4 text-sm font-bold company-column truncate-text" title="<%= lead.Company || 'N/A' %>"><%= lead.Company || 'N/A' %></td>
-                <td class="px-6 py-4 text-sm address-column"><%= lead.Address || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm font-bold company-column wrap-text"><%= lead.Company || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm address-column wrap-text"><%= lead.Address || 'N/A' %></td>
                 <td class="px-6 py-4 text-sm jobs-column"><%= lead['Estimated New Jobs'] || 'N/A' %></td>
                 <td class="px-6 py-4 text-sm activity-column"><%= lead['Activity Type'] || 'N/A' %></td>
                 <td class="px-6 py-4 text-sm timeframe-column"><%= lead['Timeframe'] || 'N/A' %></td>
-                <td class="px-6 py-4 text-sm summary-column"><%= lead['General Lead Summary'] || 'N/A' %></td>
-                <td class="px-6 py-4 text-sm about-column"><%= lead['About'] || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm summary-column wrap-text"><%= lead['General Lead Summary'] || 'N/A' %></td>
+                <td class="px-6 py-4 text-sm about-column wrap-text"><%= lead['About'] || 'N/A' %></td>
               </tr>
             <% }); %>
           </tbody>

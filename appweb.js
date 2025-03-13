@@ -290,6 +290,7 @@ app.get('/', (req, res) => {
     totalActivityTypes,
     activityCounts,
     selectedState: null,
+    searchTerm: null, // Add this line
     isLoggedIn: req.session.loggedIn || false // Pass login status to template
   });
 });
@@ -332,7 +333,50 @@ app.get('/filter', (req, res) => {
     totalActivityTypes,
     activityCounts,
     selectedState: state,
+    searchTerm: null, // Add this line
     isLoggedIn: req.session.loggedIn || false // Pass login status to template
+  });
+});
+
+// Company search route - no login required
+app.get('/search', (req, res) => {
+  const { company } = req.query;
+  
+  // Generate a complete list of all 50 states
+  const states = Object.values(stateFullNames).sort();
+  
+  // Filter leads by company name if search term is provided
+  let filteredLeads = leadsData;
+  if (company && company.trim() !== '') {
+    const searchTerm = company.toLowerCase().trim();
+    filteredLeads = leadsData.filter(lead => {
+      const companyName = (lead.Company || '').toLowerCase();
+      return companyName.includes(searchTerm);
+    });
+  }
+  
+  // Calculate metrics for filtered leads
+  const totalLeads = filteredLeads.length;
+  const totalJobs = filteredLeads.reduce((sum, lead) => sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
+  const activityTypes = [...new Set(filteredLeads.map(lead => lead['Activity Type'] || 'Unknown'))];
+  const totalActivityTypes = activityTypes.length;
+  
+  // Activity type distribution
+  const activityCounts = {};
+  activityTypes.forEach(type => {
+    activityCounts[type] = filteredLeads.filter(lead => lead['Activity Type'] === type).length;
+  });
+  
+  res.render('dashboard', { 
+    leads: filteredLeads,
+    states: states,
+    totalLeads,
+    totalJobs,
+    totalActivityTypes,
+    activityCounts,
+    selectedState: null,
+    searchTerm: company, // Pass the search term to the template
+    isLoggedIn: req.session.loggedIn || false
   });
 });
 
