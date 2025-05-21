@@ -7,6 +7,20 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+  
+  <!-- Leaflet CSS and JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
+  
+  <!-- Heatmap.js -->
+  <script src="https://cdn.jsdelivr.net/npm/heatmap.js@2.0.5/build/heatmap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-heatmap@1.0.0/leaflet-heatmap.js"></script>
+  
+  <!-- MarkerCluster alternative (fallback) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+  
   <style>
     .dashboard-header {
       background: #141824;
@@ -24,36 +38,49 @@
       background: linear-gradient(135deg, rgba(43, 58, 92, 0.8) 0%, rgba(20, 24, 36, 0.8) 100%);
       border-left: 4px solid #41C9C7;
     }
+    .card-gradient-4 {
+      background: linear-gradient(135deg, rgba(43, 58, 92, 0.8) 0%, rgba(20, 24, 36, 0.8) 100%);
+      border-left: 4px solid #41C9C7;
+    }
     .company-column {
-      width: 250px !important;
-      max-width: 250px !important;
+      width: 100px !important;
+      max-width: 100px !important;
       word-wrap: break-word !important;
       font-weight: bold;
       white-space: normal !important;
     }
     .address-column {
-      width: 130px !important;
-      max-width: 130px !important;
+      width: 100px !important;
+      max-width: 150px !important;
       word-wrap: break-word !important;
     }
     .jobs-column {
-      width: 90px;
+      width: 70px;
     }
     .activity-column {
-      width: 110px;
+      width: 60px;
     }
     .timeframe-column {
-      width: 110px;
+      width: 60px;
+    }
+    .site-type-column {
+      width: 50px;
+    }
+    .specialized-industry-column {
+      width: 140px;
+    }
+    .onet-industry-column {
+      width: 140px;
     }
     .summary-column {
-      width: 400px !important;
-      min-width: 400px !important;
+      width: 300px !important;
+      min-width: 300px !important;
       word-wrap: break-word;
     }
     .about-column {
-      width: 350px !important;
-      min-width: 300px !important;
-      max-width: 350px !important;
+      width: 300px !important;
+      min-width: 250px !important;
+      max-width: 300px !important;
       word-wrap: break-word !important;
     }
     .logo {
@@ -108,6 +135,222 @@
       height: 350px;
       position: relative;
     }
+    /* Map container style */
+    #heatmapContainer {
+      height: 400px;
+      width: 100%;
+      border-radius: 0.5rem;
+    }
+    .distance-column {
+      width: 70px;
+    }
+    /* City marker styles */
+    .city-marker {
+      z-index: 1000;
+    }
+    /* Search bar layout */
+    .search-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    @media (min-width: 768px) {
+      .search-container {
+        flex-direction: column;
+      }
+    }
+    /* Tab styling */
+    .tab-active {
+      color: #41C9C7;
+      border-bottom: 3px solid #41C9C7;
+      font-weight: bold;
+    }
+    .tab-inactive {
+      color: #929EAE;
+      border-bottom: 3px solid transparent;
+    }
+    .tab-inactive:hover {
+      color: #41C9C7;
+      border-bottom: 3px solid #41C9C7;
+      opacity: 0.7;
+    }
+    /* Dashboard specific styles */
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+    }
+    .stat-icon {
+      background: linear-gradient(135deg, #41C9C7 0%, #2B3A5C 100%);
+      border-radius: 12px;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 24px;
+    }
+    /* Modern filter dropdown styling */
+    .modern-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%232B3A5C'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 1rem;
+      padding-right: 2.5rem;
+    }
+    /* Chart container styles */
+    .chart-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease;
+      overflow: hidden;
+    }
+    .chart-card:hover {
+      box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+    }
+    .chart-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #EFEFEF;
+      font-weight: bold;
+      color: #141824;
+      font-size: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chart-body {
+      padding: 1.5rem;
+    }
+
+    /* Detail Card Popup Styles */
+.detail-card {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  width: 450px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  pointer-events: none; /* Keeps pointer events disabled by default */
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  border: 1px solid #eaeaea;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.detail-card-visible {
+  opacity: 1;
+  pointer-events: auto; /* Enable pointer events when visible */
+}
+
+.detail-card-header {
+  background: linear-gradient(135deg, #2B3A5C 0%, #141824 100%);
+  color: white;
+  padding: 1rem;
+  border-bottom: 3px solid #41C9C7;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.detail-card-body {
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: calc(80vh - 60px); /* Account for header height */
+}
+
+.detail-section {
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 0.75rem;
+}
+
+.detail-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #2B3A5C;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-value {
+  font-size: 0.875rem;
+  color: #4a5568;
+  line-height: 1.4;
+}
+
+.highlight-row {
+  background-color: rgba(65, 201, 199, 0.1);
+  transition: background-color 0.3s ease;
+}
+
+.lead-row {
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+/* Badge styles for detail card */
+.detail-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+  margin-right: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.badge-primary {
+  background-color: rgba(65, 201, 199, 0.15);
+  color: #2B3A5C;
+}
+
+.badge-secondary {
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #4F46E5;
+}
+
+.badge-success {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #047857;
+}
+
+/* Add a scrollbar indicator */
+.detail-card-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.detail-card-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.detail-card-body::-webkit-scrollbar-thumb {
+  background: #2B3A5C;
+  border-radius: 4px;
+}
+
+.detail-card-body::-webkit-scrollbar-thumb:hover {
+  background: #41C9C7;
+}
   </style>
 </head>
 <body class="bg-gray-100">
@@ -137,17 +380,41 @@
     </div>
   </div>
   
+  <!-- Tabs Navigation -->
+  <div class="bg-white border-b border-gray-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex">
+        <button id="dashboard-tab" class="tab-active py-4 px-6 text-lg focus:outline-none" onclick="switchTabView('dashboard')">
+          <i class="fas fa-chart-line mr-2"></i> Dashboard
+        </button>
+        <button id="site-details-tab" class="tab-inactive py-4 px-6 text-lg focus:outline-none" onclick="switchTabView('site-details')">
+          <i class="fas fa-list-ul mr-2"></i> Site Details
+        </button>
+      </div>
+    </div>
+  </div>
+  
   <div class="container mx-auto px-4 py-8">
-    <div class="mb-6 bg-white bg-opacity-90 p-4 rounded-lg shadow">
-      <div class="flex flex-col md:flex-row md:items-center gap-4">
+    <!-- Unified Filter Section that works for both tabs -->
+    <div class="mb-6 bg-white rounded-lg shadow p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center">
+          <i class="fas fa-filter text-gray-500 mr-3 text-xl"></i>
+          <h3 class="text-lg font-medium text-gray-700">Filter Dashboard</h3>
+        </div>
+        <button id="reset-filters" class="text-sm text-blue-600 hover:text-blue-800">
+          <i class="fas fa-undo mr-1"></i>Reset Filters
+        </button>
+      </div>
+      
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <!-- State Filter -->
-        <form action="/filter" method="get" class="flex items-center flex-grow space-x-4">
-          <label for="state-select" class="text-gray-700 font-medium whitespace-nowrap">Filter by State:</label>
+        <div>
+          <label for="unified-state-select" class="block text-sm font-medium text-gray-700 mb-1">State Only:</label>
           <select 
-            id="state-select" 
-            name="state" 
-            class="form-select block w-full md:w-64 mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            onchange="this.form.submit()"
+            id="unified-state-select" 
+            class="modern-select block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            onchange="applyUnifiedStateFilter(this.value)"
           >
             <option value="All States" <%= !selectedState || selectedState === 'All States' ? 'selected' : '' %>>All States</option>
             <% states.forEach(function(state) { %>
@@ -156,204 +423,1732 @@
               </option>
             <% }); %>
           </select>
-        </form>
-
-        <!-- Company Search Bar -->
-        <form action="/search" method="get" class="flex items-center flex-grow space-x-4">
-          <label for="company-search" class="text-gray-700 font-medium whitespace-nowrap">Search Company:</label>
-          <div class="relative w-full">
+        </div>
+        
+        <!-- City with Radius Filter -->
+        <div>
+          <label for="city-input" class="block text-sm font-medium text-gray-700 mb-1">City and/or State (with radius):</label>
+          <div class="flex">
             <input 
               type="text" 
-              id="company-search" 
-              name="company" 
-              placeholder="Enter company name..." 
-              value="<%= searchTerm || '' %>"
-              class="form-input block w-full rounded-md border-gray-300 pl-10 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              id="city-input" 
+              placeholder="Enter city name" 
+              value="<%= locals.citySearchTerm || '' %>"
+              class="rounded-l-lg border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 w-3/5"
             >
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <i class="fas fa-search text-gray-400"></i>
-            </div>
-            <button type="submit" class="absolute inset-y-0 right-0 px-3 flex items-center bg-blue-500 text-white rounded-r-md hover:bg-blue-600">
-              Search
+            <select 
+              id="radius-select" 
+              class="border-l-0 border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 w-/5"
+            >
+              <option value="10" <%= locals.citySearchRadius === 10 ? 'selected' : '' %>>10 mi</option>
+              <option value="25" <%= locals.citySearchRadius === 25 ? 'selected' : '' %>>25 mi</option>
+              <option value="50" <%= (locals.citySearchRadius === 50 || !locals.citySearchRadius) ? 'selected' : '' %>>50 mi</option>
+              <option value="100" <%= locals.citySearchRadius === 100 ? 'selected' : '' %>>100 mi</option>
+              <option value="250" <%= locals.citySearchRadius === 250 ? 'selected' : '' %>>250 mi</option>
+            </select>
+            <button 
+              onclick="applyCityFilter()" 
+              class="bg-blue-500 text-white rounded-r-lg px-3 hover:bg-blue-600 border border-blue-500 w-1/5"
+            >
+              <i class="fas fa-search"></i>
             </button>
           </div>
-        </form>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div class="p-6 rounded-lg shadow-md card-gradient-1 text-white bg-opacity-90">
-        <h3 class="text-xl font-bold mb-2">Total Leads</h3>
-        <p class="text-3xl"><%= totalLeads %></p>
-      </div>
-      <div class="p-6 rounded-lg shadow-md card-gradient-2 text-white bg-opacity-90">
-        <h3 class="text-xl font-bold mb-2">Total Estimated Jobs</h3>
-        <p class="text-3xl"><%= totalJobs %></p>
-      </div>
-      <div class="p-6 rounded-lg shadow-md card-gradient-3 text-white bg-opacity-90">
-        <h3 class="text-xl font-bold mb-2">Activity Types</h3>
-        <p class="text-3xl"><%= totalActivityTypes %></p>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-      <!-- Activity Type Distribution Chart -->
-      <div class="bg-white shadow-md rounded-lg bg-opacity-90">
-        <div class="p-6 border-b border-gray-200">
-          <h2 class="text-2xl font-bold text-gray-800">Activity Type Distribution</h2>
         </div>
-        <div class="p-6">
-          <% Object.keys(activityCounts).forEach(function(type) { %>
-            <div class="mb-4">
-              <div class="flex justify-between text-sm mb-1">
-                <span class="font-medium"><%= type %></span>
-                <span><%= activityCounts[type] %> leads</span>
-              </div>
-              <div class="bg-gray-200 rounded-full h-2.5">
-                <div 
-                  class="progress-bar rounded-full h-2.5" 
-                  style="width: <%= (activityCounts[type] / totalLeads * 100).toFixed(2) %>%"
-                ></div>
-              </div>
-            </div>
-          <% }); %>
-        </div>
-      </div>
-
-      <!-- State Distribution Chart -->
-      <div class="bg-white shadow-md rounded-lg bg-opacity-90">
-        <div class="p-6 border-b border-gray-200">
-          <h2 class="text-2xl font-bold text-gray-800">Top 10 States</h2>
-        </div>
-        <div class="p-6">
-          <div class="chart-container">
-            <canvas id="stateDistributionChart"></canvas>
+        
+        <!-- Activity Type Filter -->
+<div>
+  <label for="unified-activity-select" class="block text-sm font-medium text-gray-700 mb-1">Activity Type:</label>
+  <select 
+    id="unified-activity-select" 
+    class="modern-select block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+    onchange="applyUnifiedActivityFilter(this.value)"
+  >
+    <option value="All Activities">All Activities</option>
+    <% 
+    // Get activity types and sort alphabetically
+    let activityTypes = Object.keys(activityCounts);
+    // Remove 'Unknown' if it exists
+    const unknownIndex = activityTypes.indexOf('Unknown');
+    if (unknownIndex !== -1) {
+      activityTypes.splice(unknownIndex, 1);
+    }
+    // Sort the rest alphabetically
+    activityTypes.sort();
+    // Add 'Unknown' at the end if it existed
+    if (unknownIndex !== -1) {
+      activityTypes.push('Unknown');
+    }
+    
+    activityTypes.forEach(function(type) { 
+    %>
+      <option value="<%= type %>"><%= type %></option>
+    <% }); %>
+  </select>
+</div>
+        
+        <!-- Timeframe Filter -->
+<div>
+  <label for="unified-timeframe-select" class="block text-sm font-medium text-gray-700 mb-1">Origin Quarter:</label>
+  <select 
+    id="unified-timeframe-select" 
+    class="modern-select block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+    onchange="applyUnifiedTimeframeFilter(this.value)"
+  >
+    <option value="All Timeframes">All Timeframes</option>
+    <% 
+    // Get unique timeframes and sort alphabetically
+    const timeframes = [...new Set(leads.map(lead => lead['Timeframe'] || 'Unknown'))].sort();
+    timeframes.forEach(function(timeframe) { 
+    %>
+      <option value="<%= timeframe %>"><%= timeframe %></option>
+    <% }); %>
+  </select>
+</div>
+        
+        <!-- Company Name Filter -->
+        <div>
+          <label for="company-input" class="block text-sm font-medium text-gray-700 mb-1">Company Name:</label>
+          <div class="flex">
+            <input 
+              type="text" 
+              id="company-input" 
+              placeholder="Enter company name" 
+              value="<%= searchTerm || '' %>"
+              class="rounded-l-lg border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 w-4/5"
+            >
+            <button 
+              onclick="applyCompanyFilter()" 
+              class="bg-blue-500 text-white rounded-r-lg px-3 hover:bg-blue-600 border border-blue-500 w-1/5"
+            >
+              <i class="fas fa-search"></i>
+            </button>
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="mt-8 bg-white shadow-md rounded-lg overflow-hidden bg-opacity-90">
-      <div class="p-6 border-b border-gray-200">
-        <h2 class="text-2xl font-bold text-gray-800">Leads Table</h2>
+      
+      <!-- City Search Error Message -->
+      <% if (locals.citySearchError) { %>
+      <div class="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <span class="block sm:inline"><%= citySearchError %></span>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full table-fixed">
-          <thead class="table-header">
-            <tr>
-              <!-- Reordered columns as specified -->
-              <th class="px-6 py-3 text-left table-header-smaller tracking-wider company-column">Company</th>
-              <th class="px-6 py-3 text-left table-header-smaller tracking-wider about-column">About</th>
-              <th class="px-6 py-3 text-left table-header-smaller tracking-wider summary-column">General Lead Summary</th>
-              <th class="px-6 py-3 text-left table-header-smaller tracking-wider address-column">Location</th>
-              <th class="px-6 py-3 text-left table-header-smaller tracking-wider activity-column">Activity Type</th>
-              <th class="px-6 py-3 text-left table-header-smaller tracking-wider timeframe-column">Timeframe</th>
-              <th class="px-6 py-3 text-left table-header-smaller tracking-wider jobs-column">Est. Jobs</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-            <% leads.slice(0, 50).forEach(function(lead) { %>
+      <% } %>
+      
+      <!-- Current Search Info -->
+      <% if (locals.citySearchCoordinates) { %>
+      <div class="mt-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded relative" role="alert">
+        <span class="block sm:inline">
+          <i class="fas fa-info-circle mr-2"></i>
+          Showing <%= totalLeads %> leads within <%= locals.citySearchRadius %> miles of <%= locals.citySearchTerm %>
+        </span>
+      </div>
+      <% } %>
+    </div>
+    
+    <!-- Dashboard View -->
+    <div id="dashboard-view" class="space-y-6">
+      <!-- Stat Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Total Leads Card -->
+        <div class="stat-card p-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-lg text-gray-500 font-medium">Total Leads</p>
+              <h3 class="mt-1 text-4xl font-bold text-gray-800" id="total-leads-count"><%= totalLeads %></h3>
+              <p class="mt-3 text-sm text-gray-600">All active leads in system</p>
+            </div>
+            <div class="stat-icon">
+              <i class="fas fa-building"></i>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Estimated Jobs Card -->
+        <div class="stat-card p-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-lg text-gray-500 font-medium">Est. New Jobs</p>
+              <h3 class="mt-1 text-4xl font-bold text-gray-800" id="total-jobs-count"><%= totalJobs %></h3>
+              <p class="mt-3 text-sm text-gray-600">Potential job creation</p>
+            </div>
+            <div class="stat-icon">
+              <i class="fas fa-user-tie"></i>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Activity Types Card -->
+        <div class="stat-card p-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-lg text-gray-500 font-medium">Activity Types</p>
+              <h3 class="mt-1 text-4xl font-bold text-gray-800" id="activity-types-count"><%= totalActivityTypes %></h3>
+              <p class="mt-3 text-sm text-gray-600">Distinct categories</p>
+            </div>
+            <div class="stat-icon">
+              <i class="fas fa-tags"></i>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Avg Jobs Per Lead Card -->
+        <div class="stat-card p-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-lg text-gray-500 font-medium">Avg Jobs/Lead</p>
+              <h3 class="mt-1 text-4xl font-bold text-gray-800" id="avg-jobs-count">
+                <%= Math.round(totalJobs / (totalLeads || 1)) %>
+              </h3>
+              <p class="mt-3 text-sm text-gray-600">Average job creation</p>
+            </div>
+            <div class="stat-icon">
+              <i class="fas fa-chart-bar"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Main Charts - First Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Timeframe Distribution Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span>Leads by Timeframe</span>
+            <i class="fas fa-calendar-alt text-gray-400"></i>
+          </div>
+          <div class="chart-body">
+            <div class="chart-container">
+              <canvas id="timeframeDistributionChart"></canvas>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Activity Type Distribution Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span>Activity Distribution</span>
+            <i class="fas fa-chart-pie text-gray-400"></i>
+          </div>
+          <div class="chart-body">
+            <div class="chart-container">
+              <canvas id="activityTypeChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Main Charts - Second Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- State Distribution Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span>Top 10 States</span>
+            <i class="fas fa-map-marked-alt text-gray-400"></i>
+          </div>
+          <div class="chart-body">
+            <div class="chart-container">
+              <canvas id="stateDistributionChart"></canvas>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Site Type Distribution Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span>Site Type Distribution</span>
+            <i class="fas fa-building text-gray-400"></i>
+          </div>
+          <div class="chart-body">
+            <div class="chart-container">
+              <canvas id="siteTypeChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Heatmap Section -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span>Lead Location Heatmap</span>
+          <i class="fas fa-globe-americas text-gray-400"></i>
+        </div>
+        <div class="p-6">
+          <div id="heatmapContainer"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Site Details View -->
+    <div id="site-details-view" class="space-y-6" style="display: none;">
+      <!-- Lead Count Summary -->
+      <div class="bg-white shadow-md rounded-lg p-4 mb-6">
+        <h2 class="text-lg font-medium text-gray-700">Found <span class="font-bold text-indigo-600"><%= totalLeads %></span> leads
+          <% if (totalLeads > 0) { %>
+            with <span class="font-bold text-indigo-600"><%= totalJobs %></span> estimated new jobs
+          <% } %>
+        </h2>
+      </div>
+      
+      <!-- Leads Table -->
+      <div class="bg-white shadow-md rounded-lg overflow-hidden bg-opacity-90">
+        <div class="p-6 border-b border-gray-200">
+          <h2 class="text-2xl font-bold text-gray-800">Leads Table</h2>
+          <p class="text-sm text-gray-500 mt-1">Hover over a company to see detailed information</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full table-fixed">
+            <thead class="table-header">
               <tr>
-                <!-- Reordered columns as specified -->
-                <td class="px-6 py-4 font-bold company-column wrap-text table-text-smaller"><%= lead.Company || 'N/A' %></td>
-                <td class="px-6 py-4 about-column wrap-text table-text-smaller"><%= lead['About'] || 'N/A' %></td>
-                <td class="px-6 py-4 summary-column wrap-text table-text-smaller"><%= lead['General Lead Summary'] || 'N/A' %></td>
-                <td class="px-6 py-4 address-column address-with-breaks table-text-smaller"><%- (lead.Address || 'N/A').replace(/,\s*/g, ',\n') %></td>
-                <td class="px-6 py-4 activity-column table-text-smaller"><%= lead['Activity Type'] || 'N/A' %></td>
-                <td class="px-6 py-4 timeframe-column table-text-smaller"><%= lead['Timeframe'] || 'N/A' %></td>
-                <td class="px-6 py-4 jobs-column table-text-smaller"><%= lead['Estimated New Jobs'] || 'N/A' %></td>
+                <!-- Columns including the new fields -->
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider company-column">Company</th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider site-type-column">Site Type</th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider address-column">Location</th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider activity-column">Activity Type</th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider timeframe-column">Origin Quarter</th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider jobs-column">Est. Jobs</th>
+                <!-- Distance column (only shown for city search) -->
+                <% if (locals.citySearchCoordinates) { %>
+                  <th class="px-6 py-3 text-left table-header-smaller tracking-wider distance-column">Distance</th>
+                <% } %>
               </tr>
-            <% }); %>
-          </tbody>
-        </table>
+            </thead>
+            <tbody class="divide-y divide-gray-200" id="leads-table-body">
+              <% leads.slice(0, 50).forEach(function(lead, index) { %>
+                <tr class="lead-row" data-index="<%= index %>">
+                  <!-- Columns including the new fields -->
+                  <td class="px-6 py-4 font-bold company-column wrap-text table-text-smaller"><%= lead.Company || 'N/A' %></td>
+                  <td class="px-6 py-4 site-type-column wrap-text table-text-smaller"><%= lead['Site Type'] || 'N/A' %></td>
+                  <td class="px-6 py-4 address-column address-with-breaks table-text-smaller"><%- (lead.Address || 'N/A').replace(/,\s*([^,]*?)$/g, '<br>$1') %></td>
+                  <td class="px-6 py-4 activity-column table-text-smaller"><%= lead['Activity Type'] || 'N/A' %></td>
+                  <td class="px-6 py-4 timeframe-column table-text-smaller"><%= lead['Timeframe'] || 'N/A' %></td>
+                  <td class="px-6 py-4 jobs-column table-text-smaller"><%= lead['Estimated New Jobs'] || 'N/A' %></td>
+                  <!-- Distance column (only shown for city search) -->
+                  <% if (locals.citySearchCoordinates) { %>
+                    <td class="px-6 py-4 distance-column table-text-smaller"><%= lead.distance ? lead.distance + ' mi' : 'N/A' %></td>
+                  <% } %>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- Detail Card Modal that follows mouse when hovering over rows -->
+  <div id="detail-card" class="detail-card">
+    <div class="detail-card-header">
+      <h3 id="detail-card-title" class="text-lg font-bold truncate"></h3>
+    </div>
+    <div class="detail-card-body">
+      <!-- Content will be dynamically populated -->
+    </div>
+  </div>
+
   <script>
-    // Create the state distribution chart
+   // Track current active tab
+   let currentTab = 'dashboard';
+  
+  // Track the currently active lead
+  let activeLeadIndex = null;
+  
+  // Global filter state - shared across both tabs
+  const filterState = {
+    state: 'All States',
+    city: '',
+    radius: 50,
+    activity: 'All Activities',
+    timeframe: 'All Timeframes',
+    company: ''
+  };
+    
+    // Function to switch between tabs
+    function switchTabView(tab) {
+      try {
+        console.log(`Switching to ${tab} tab`);
+        
+        // Hide all views
+        document.getElementById('dashboard-view').style.display = 'none';
+        document.getElementById('site-details-view').style.display = 'none';
+        
+        // Remove active class from all tabs
+        document.getElementById('dashboard-tab').classList.remove('tab-active');
+        document.getElementById('dashboard-tab').classList.add('tab-inactive');
+        document.getElementById('site-details-tab').classList.remove('tab-active');
+        document.getElementById('site-details-tab').classList.add('tab-inactive');
+        
+        // Show selected view and activate tab
+        document.getElementById(tab + '-view').style.display = 'block';
+        document.getElementById(tab + '-tab').classList.remove('tab-inactive');
+        document.getElementById(tab + '-tab').classList.add('tab-active');
+        
+        // Store current tab
+        currentTab = tab;
+        
+        // If switching to dashboard, refresh charts (in case of resizing)
+        if (tab === 'dashboard') {
+          setTimeout(() => {
+            console.log("Refreshing charts after tab switch");
+            // Use Chart.js's proper resize method by updating the chart
+            if (window.timeframeChart) window.timeframeChart.update();
+            if (window.activityChart) window.activityChart.update();
+            if (window.stateChart) window.stateChart.update();
+            if (window.siteTypeChart) window.siteTypeChart.update();
+          }, 100);
+        }
+        
+        console.log(`Successfully switched to ${tab} tab`);
+      } catch (error) {
+        console.error("Error in switchTabView function:", error);
+      }
+    }
+    
+    // Dashboard data and chart functionality
     document.addEventListener('DOMContentLoaded', function() {
-      // Get state count data
-      const stateData = {};
+      console.log("DOM content loaded - initializing dashboard");
       
-      <% 
-      // Calculate state counts
-      const stateCounts = {};
-      states.forEach(state => { stateCounts[state] = 0; });
+      try {
+        // Create dashboard charts
+        console.log("Creating charts...");
+        createTimeframeChart();
+        createActivityTypeChart();
+        createModernStateChart();
+        createSiteTypeChart();
+        
+        // Initialize the map for the dashboard
+        console.log("Initializing map...");
+        initializeMap();
+        
+        // Add event listener for reset filters button
+        const resetButton = document.getElementById('reset-filters');
+        if (resetButton) {
+          resetButton.addEventListener('click', resetFilters);
+          console.log("Reset filters button event listener added");
+        } else {
+          console.error("Reset filters button not found");
+        }
+        
+        // Initialize filter values from URL or previous state if available
+        initializeFiltersFromURL();
+        
+        // Initialize detail card hover functionality
+        initializeDetailCardHover();
+        
+        console.log("Dashboard initialization complete");
+      } catch (error) {
+        console.error("Error initializing dashboard:", error);
+      }
+    });
+    
+// Initialize the detail card hover functionality
+function initializeDetailCardHover() {
+  // Get all lead rows in the table
+  const leadRows = document.querySelectorAll('.lead-row');
+  const detailCard = document.getElementById('detail-card');
+  
+  // Store the lead data for quick access
+  const leadsData = <%- JSON.stringify(leads.slice(0, 50)) %>;
+  
+  // Track mouse state
+  let isOverCard = false;
+  let isOverRow = false;
+  let activeLeadIndex = null;
+  let mouseLeaveTimeout = null;
+  
+  // Add event listeners to the detail card
+  detailCard.addEventListener('mouseenter', function() {
+    isOverCard = true;
+    clearTimeout(mouseLeaveTimeout);
+  });
+  
+  detailCard.addEventListener('mouseleave', function() {
+    isOverCard = false;
+    
+    // Use a small timeout to handle rapid mouse movements
+    mouseLeaveTimeout = setTimeout(() => {
+      if (!isOverRow && !isOverCard) {
+        detailCard.classList.remove('detail-card-visible');
+        if (activeLeadIndex !== null) {
+          const activeRow = document.querySelector(`.lead-row[data-index="${activeLeadIndex}"]`);
+          if (activeRow) {
+            activeRow.classList.remove('highlight-row');
+          }
+        }
+        activeLeadIndex = null;
+      }
+    }, 50);
+  });
+  
+  // Add mouseover, mouseout, and mousemove event listeners to each row
+  leadRows.forEach(row => {
+    const index = parseInt(row.getAttribute('data-index'));
+    
+    row.addEventListener('mouseenter', function() {
+      isOverRow = true;
+      activeLeadIndex = index;
       
-      leads.forEach(lead => {
-        if (lead.Address) {
-          states.forEach(state => {
-            if (lead.Address.toLowerCase().includes(state.toLowerCase())) {
-              stateCounts[state] = (stateCounts[state] || 0) + 1;
+      // Clear any pending timeout
+      clearTimeout(mouseLeaveTimeout);
+      
+      // Highlight the row
+      row.classList.add('highlight-row');
+      
+      // Get lead data and populate the card
+      const lead = leadsData[index];
+      if (lead) {
+        populateDetailCard(lead);
+        
+        // Position the card based on window size
+        positionDetailCard();
+        
+        // Show the card
+        detailCard.classList.add('detail-card-visible');
+      }
+    });
+    
+    row.addEventListener('mouseleave', function() {
+      isOverRow = false;
+      
+      // Use a small timeout to check if mouse moved to the card
+      mouseLeaveTimeout = setTimeout(() => {
+        if (!isOverRow && !isOverCard) {
+          detailCard.classList.remove('detail-card-visible');
+          row.classList.remove('highlight-row');
+          activeLeadIndex = null;
+        }
+      }, 50);
+    });
+  });
+  
+  // Add a window resize listener to reposition the card
+  window.addEventListener('resize', function() {
+    if (detailCard.classList.contains('detail-card-visible')) {
+      positionDetailCard();
+    }
+  });
+  
+  // Function to position the detail card based on window size
+  function positionDetailCard() {
+    const windowHeight = window.innerHeight;
+    const cardHeight = detailCard.offsetHeight;
+    
+    // Ensure card is fully visible on the screen
+    if (cardHeight > windowHeight - 40) {
+      // For very tall cards, position at top with scrolling
+      detailCard.style.top = '20px';
+      detailCard.style.transform = 'translateY(0)';
+      detailCard.style.maxHeight = (windowHeight - 40) + 'px';
+    } else {
+      // Center the card vertically
+      detailCard.style.top = '50%';
+      detailCard.style.transform = 'translateY(-50%)';
+      detailCard.style.maxHeight = (windowHeight - 40) + 'px';
+    }
+  }
+}
+
+// Function to populate the detail card with lead data
+function populateDetailCard(lead) {
+  const detailCard = document.getElementById('detail-card');
+  const detailCardTitle = document.getElementById('detail-card-title');
+  const detailCardBody = document.querySelector('.detail-card-body');
+  
+  // Set the title (company name)
+  detailCardTitle.textContent = lead.Company || 'Unknown Company';
+  
+  // Create the content for the detail card body
+  let bodyContent = `
+    <div class="detail-section">
+      <div class="detail-label">Overview</div>
+      <div class="flex mb-2">
+        <div class="detail-badge badge-primary">
+          <i class="fas fa-user-tie mr-1"></i> ${lead['Estimated New Jobs'] || '0'} Jobs
+        </div>
+        <div class="detail-badge badge-secondary">
+          <i class="fas fa-calendar-alt mr-1"></i> ${lead['Timeframe'] || 'Unknown'}
+        </div>
+        <div class="detail-badge badge-success">
+          <i class="fas fa-tag mr-1"></i> ${lead['Activity Type'] || 'Unknown'}
+        </div>
+      </div>
+      <div class="detail-value">${lead['General Lead Summary'] || 'No summary available'}</div>
+    </div>
+    
+    <div class="detail-section">
+      <div class="detail-label">Location Details</div>
+      <div class="detail-value">${lead['Address'] ? lead['Address'].replace(/,\s*/g, ',<br>') : 'Address not available'}</div>
+      ${lead.Latitude && lead.Longitude ? `
+        <div class="mt-2 text-xs text-gray-500">
+          <i class="fas fa-map-marker-alt mr-1"></i> ${lead.Latitude.toFixed(6)}, ${lead.Longitude.toFixed(6)}
+        </div>
+      ` : ''}
+      ${lead.distance ? `
+        <div class="mt-2 text-xs text-gray-500">
+          <i class="fas fa-route mr-1"></i> ${lead.distance} miles from search center
+        </div>
+      ` : ''}
+    </div>
+    
+    <div class="detail-section">
+      <div class="detail-label">Industry Classification</div>
+      <div class="detail-value mb-2">
+        <span class="font-medium">Site Type:</span> ${formatMultiValue(lead['Site Type'])}
+      </div>
+      <div class="detail-value mb-2">
+        <span class="font-medium">Specialized Industry:</span> ${formatMultiValue(lead['Specialized Industry Site'])}
+      </div>
+      <div class="detail-value">
+        <span class="font-medium">O*NET Industry:</span> ${formatMultiValue(lead['O*NET Industry Site'])}
+      </div>
+    </div>
+    
+    <div class="detail-section">
+      <div class="detail-label">About</div>
+      <div class="detail-value">${lead['About'] || 'No additional information available'}</div>
+    </div>
+  `;
+  
+  // Set the content
+  detailCardBody.innerHTML = bodyContent;
+}
+
+// Helper function to format multi-value fields with badges
+function formatMultiValue(value) {
+  if (!value || value === 'N/A') return 'None specified';
+  
+  // Check if the value contains commas (multiple values)
+  if (value.includes(',')) {
+    const values = value.split(',').map(v => v.trim()).filter(v => v);
+    return values.map(v => `<span class="detail-badge badge-primary">${v}</span>`).join(' ');
+  }
+  
+  return `<span class="detail-badge badge-primary">${value}</span>`;
+}
+    
+    
+    // Initialize filters from URL parameters if available
+    function initializeFiltersFromURL() {
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Set state filter if in URL
+      if (urlParams.has('state') && urlParams.get('state') !== 'All States') {
+        filterState.state = urlParams.get('state');
+        document.getElementById('unified-state-select').value = filterState.state;
+      }
+      
+      // Set city and radius if in URL
+      if (urlParams.has('city')) {
+        filterState.city = urlParams.get('city');
+        document.getElementById('city-input').value = filterState.city;
+        
+        if (urlParams.has('radius')) {
+          filterState.radius = urlParams.get('radius');
+          document.getElementById('radius-select').value = filterState.radius;
+        }
+      }
+      
+      // Set company filter if in URL
+      if (urlParams.has('company')) {
+        filterState.company = urlParams.get('company');
+        document.getElementById('company-input').value = filterState.company;
+      }
+    }
+    
+    // Unified filter functions
+    function applyUnifiedStateFilter(state) {
+      filterState.state = state;
+      
+      if (state !== 'All States') {
+        // Redirect to server-side filtering for state
+        window.location.href = `/filter?state=${encodeURIComponent(state)}`;
+      } else {
+        // Reset state filter on the server
+        window.location.href = '/';
+      }
+    }
+    
+    function applyCityFilter() {
+      const city = document.getElementById('city-input').value.trim();
+      const radius = document.getElementById('radius-select').value;
+      
+      if (city) {
+        // Redirect to server-side filtering for city
+        window.location.href = `/city-search?city=${encodeURIComponent(city)}&radius=${encodeURIComponent(radius)}`;
+      }
+    }
+    
+    function applyCompanyFilter() {
+      const company = document.getElementById('company-input').value.trim();
+      
+      if (company) {
+        // Redirect to server-side filtering for company
+        window.location.href = `/search?company=${encodeURIComponent(company)}`;
+      }
+    }
+    
+    function applyUnifiedActivityFilter(activity) {
+      filterState.activity = activity;
+      
+      // Apply client-side filtering for activity
+      applyFilters();
+    }
+    
+    function applyUnifiedTimeframeFilter(timeframe) {
+      filterState.timeframe = timeframe;
+      
+      // Apply client-side filtering for timeframe
+      applyFilters();
+    }
+    
+    // Reset all filters
+    function resetFilters() {
+      // Reset filter state
+      filterState.state = 'All States';
+      filterState.city = '';
+      filterState.radius = 50;
+      filterState.activity = 'All Activities';
+      filterState.timeframe = 'All Timeframes';
+      filterState.company = '';
+      
+      // Reset dropdown values
+      document.getElementById('unified-state-select').value = 'All States';
+      document.getElementById('city-input').value = '';
+      document.getElementById('radius-select').value = '50';
+      document.getElementById('unified-activity-select').value = 'All Activities';
+      document.getElementById('unified-timeframe-select').value = 'All Timeframes';
+      document.getElementById('company-input').value = '';
+      
+      // Redirect to home page to reset server-side filters
+      window.location.href = '/';
+    }
+    
+    // Apply client-side filters (for activity and timeframe)
+    function applyFilters() {
+      // Filter the data
+      const filteredData = filterData();
+      
+      // Update stats cards
+      updateStatsCards(filteredData);
+      
+      // Update charts
+      updateCharts(filteredData);
+      
+      // Update leads table
+      updateLeadsTable(filteredData);
+    }
+    
+    // Filter data based on current filter state
+    function filterData() {
+      // Start with all leads
+      let filteredLeads = <%- JSON.stringify(leads) %>;
+      
+      // Apply activity filter (client-side)
+      if (filterState.activity !== 'All Activities') {
+        filteredLeads = filteredLeads.filter(lead => {
+          return lead['Activity Type'] === filterState.activity;
+        });
+      }
+      
+      // Apply timeframe filter (client-side)
+      if (filterState.timeframe !== 'All Timeframes') {
+        filteredLeads = filteredLeads.filter(lead => {
+          return lead['Timeframe'] === filterState.timeframe;
+        });
+      }
+      
+      return filteredLeads;
+    }
+    
+    // Update stats cards with filtered data
+    function updateStatsCards(filteredData) {
+      const totalLeads = filteredData.length;
+      const totalJobs = filteredData.reduce((sum, lead) => sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
+      const activityTypes = [...new Set(filteredData.map(lead => lead['Activity Type'] || 'Unknown'))].filter(type => type !== 'Unknown').length;
+      const avgJobs = Math.round(totalJobs / (totalLeads || 1));
+      
+      // Update DOM elements
+      document.getElementById('total-leads-count').textContent = totalLeads;
+      document.getElementById('total-jobs-count').textContent = totalJobs;
+      document.getElementById('activity-types-count').textContent = activityTypes;
+      document.getElementById('avg-jobs-count').textContent = avgJobs;
+    }
+    
+    // Update all charts with filtered data
+    function updateCharts(filteredData) {
+      // Update each chart with the filtered data
+      updateTimeframeChart(filteredData);
+      updateActivityTypeChart(filteredData);
+      updateStateChart(filteredData);
+      updateSiteTypeChart(filteredData);
+      // Note: Heatmap would need more complex updating which is not included here
+    }
+    
+    // Update the leads table with filtered data
+    function updateLeadsTable(filteredData) {
+      const tableBody = document.getElementById('leads-table-body');
+      if (!tableBody) return;
+      
+      // Clear existing rows
+      tableBody.innerHTML = '';
+      
+      // Add filtered rows (limit to 50)
+      filteredData.slice(0, 50).forEach((lead, index) => {
+        const row = document.createElement('tr');
+        row.className = 'lead-row';
+        row.setAttribute('data-index', index);
+        
+      // Add event listeners for the new row
+       row.addEventListener('mouseover', function(e) {
+        row.classList.add('highlight-row');
+        populateDetailCard(lead);
+        document.getElementById('detail-card').classList.add('detail-card-visible');
+      });
+
+      row.addEventListener('mouseout', function() {
+      row.classList.remove('highlight-row');
+       document.getElementById('detail-card').classList.remove('detail-card-visible');
+      });
+        
+        // Add all cells
+        const hasCitySearch = <%= locals.citySearchCoordinates ? 'true' : 'false' %>;
+        
+        row.innerHTML = `
+          <td class="px-6 py-4 font-bold company-column wrap-text table-text-smaller">${lead.Company || 'N/A'}</td>
+          <td class="px-6 py-4 site-type-column wrap-text table-text-smaller">${lead['Site Type'] || 'N/A'}</td>
+          <td class="px-6 py-4 address-column address-with-breaks table-text-smaller">${(lead.Address || 'N/A').replace(/,\s*/g, ',\n')}</td>
+          <td class="px-6 py-4 activity-column table-text-smaller">${lead['Activity Type'] || 'N/A'}</td>
+          <td class="px-6 py-4 timeframe-column table-text-smaller">${lead['Timeframe'] || 'N/A'}</td>
+          <td class="px-6 py-4 jobs-column table-text-smaller">${lead['Estimated New Jobs'] || 'N/A'}</td>
+          ${hasCitySearch ? `<td class="px-6 py-4 distance-column table-text-smaller">${lead.distance ? lead.distance + ' mi' : 'N/A'}</td>` : ''}
+        `;
+        
+        tableBody.appendChild(row);
+      });
+    }
+    
+    // Create the timeframe distribution chart
+    function createTimeframeChart() {
+      try {
+        console.log("Creating timeframe chart - function called");
+        
+        // Get all timeframes and their counts
+        const timeframeCounts = {};
+        <% 
+        // Calculate timeframe counts 
+        const timeframeCounts = {};
+        leads.forEach(lead => {
+          const timeframe = lead['Timeframe'] || 'Unknown';
+          timeframeCounts[timeframe] = (timeframeCounts[timeframe] || 0) + 1;
+        });
+        %>
+        
+        // Prepare data for the chart
+        const timeframeLabels = [];
+        const timeframeData = [];
+        
+        <% 
+        // Sort timeframes for better visualization
+        const sortedTimeframes = Object.keys(timeframeCounts).sort((a, b) => {
+          // Custom sorting function for timeframes
+          const timeOrder = {
+            'Immediate': 1,
+            '0-6 Months': 2,
+            '6-12 Months': 3,
+            '12-24 Months': 4,
+            '24+ Months': 5,
+            'Unknown': 6
+          };
+          return (timeOrder[a] || 999) - (timeOrder[b] || 999);
+        });
+        %>
+        
+        <% sortedTimeframes.forEach(timeframe => { %>
+          timeframeLabels.push('<%= timeframe %>');
+          timeframeData.push(<%= timeframeCounts[timeframe] %>);
+        <% }); %>
+        
+        console.log("Timeframe Labels:", timeframeLabels);
+        console.log("Timeframe Data:", timeframeData);
+        
+        // Create the chart
+        const timeframeElement = document.getElementById('timeframeDistributionChart');
+        if (timeframeElement) {
+          console.log("Timeframe chart element found - creating chart");
+          const ctx = timeframeElement.getContext('2d');
+          window.timeframeChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: timeframeLabels,
+              datasets: [{
+                label: 'Number of Leads',
+                data: timeframeData,
+                backgroundColor: [
+                  'rgba(65, 201, 199, 0.8)',  // Teal
+                  'rgba(99, 102, 241, 0.8)',  // Indigo
+                  'rgba(139, 92, 246, 0.8)',  // Purple
+                  'rgba(217, 70, 239, 0.8)',  // Fuchsia
+                  'rgba(236, 72, 153, 0.8)',  // Pink
+                  'rgba(248, 113, 113, 0.8)'  // Red
+                ],
+                borderColor: [
+                  'rgba(65, 201, 199, 1)',
+                  'rgba(99, 102, 241, 1)',
+                  'rgba(139, 92, 246, 1)',
+                  'rgba(217, 70, 239, 1)',
+                  'rgba(236, 72, 153, 1)',
+                  'rgba(248, 113, 113, 1)'
+                ],
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: false
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const value = context.raw;
+                      const total = timeframeData.reduce((a, b) => a + b, l0);
+                      const percentage = ((value / total) * 100).toFixed(1);
+                      return `Leads: ${value} (${percentage}%)`;
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Number of Leads',
+                    font: {
+                      size: 14
+                    }
+                  }
+                }
+              }
             }
           });
+          console.log("Timeframe chart created successfully");
+        } else {
+          console.error("Timeframe chart element not found");
         }
-      });
-      
-      // Sort states by count (descending)
-      const sortedStates = Object.keys(stateCounts)
-        .filter(state => stateCounts[state] > 0)
-        .sort((a, b) => stateCounts[b] - stateCounts[a])
-        .slice(0, 10); // Get top 10 states
-      %>
-      
-      // Prepare data for chart
-      const stateLabels = [<% sortedStates.forEach((state, index) => { %>'<%= state %>'<%= index < sortedStates.length - 1 ? ',' : '' %><% }); %>];
-      const stateCounts = [<% sortedStates.forEach((state, index) => { %><%= stateCounts[state] %><%= index < sortedStates.length - 1 ? ',' : '' %><% }); %>];
-      
-      // Create chart
-      const ctx = document.getElementById('stateDistributionChart').getContext('2d');
-      const stateChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: stateLabels,
-          datasets: [{
-            label: 'Number of Leads',
-            data: stateCounts,
-            backgroundColor: '#41C9C7',
-            borderColor: '#2B3A5C',
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          indexAxis: 'y',  // Creates horizontal bars
-          plugins: {
-            legend: {
-              display: false
+      } catch (error) {
+        console.error("Error creating timeframe chart:", error);
+      }
+    }
+    
+    // Update timeframe chart with filtered data
+    function updateTimeframeChart(filteredData) {
+      try {
+        if (!window.timeframeChart) {
+          console.warn("Timeframe chart not initialized - cannot update");
+          return;
+        }
+        
+        // Calculate new counts for each timeframe
+        const timeframeCounts = {};
+        filteredData.forEach(lead => {
+          const timeframe = lead['Timeframe'] || 'Unknown';
+          timeframeCounts[timeframe] = (timeframeCounts[timeframe] || 0) + 1;
+        });
+        
+        // Update chart data
+        window.timeframeChart.data.datasets[0].data = window.timeframeChart.data.labels.map(
+          label => timeframeCounts[label] || 0
+        );
+        
+        // Update the chart
+        window.timeframeChart.update();
+        console.log("Timeframe chart updated with filtered data");
+      } catch (error) {
+        console.error("Error updating timeframe chart:", error);
+      }
+    }
+    
+    // Create the activity type distribution chart
+    function createActivityTypeChart() {
+      try {
+        console.log("Creating activity type chart");
+        
+        // Get activity type distribution
+        const activityLabels = [];
+        const activityData = [];
+        
+        <% 
+        // Sort activity types by count (descending)
+        const sortedActivities = Object.keys(activityCounts)
+          .sort((a, b) => activityCounts[b] - activityCounts[a])
+          .slice(0, 8); // Limit to top 8 for better visualization
+        %>
+        
+        <% sortedActivities.forEach(activity => { %>
+          activityLabels.push('<%= activity %>');
+          activityData.push(<%= activityCounts[activity] %>);
+        <% }); %>
+        
+        console.log("Activity Labels:", activityLabels);
+        console.log("Activity Data:", activityData);
+        
+        // Create the chart
+        const activityElement = document.getElementById('activityTypeChart');
+        if (activityElement) {
+          const ctx = activityElement.getContext('2d');
+          window.activityChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: activityLabels,
+              datasets: [{
+                data: activityData,
+                backgroundColor: [
+                  'rgba(65, 201, 199, 0.8)',   // Teal
+                  'rgba(59, 130, 246, 0.8)',   // Blue
+                  'rgba(99, 102, 241, 0.8)',   // Indigo
+                  'rgba(139, 92, 246, 0.8)',   // Purple
+                  'rgba(217, 70, 239, 0.8)',   // Fuchsia
+                  'rgba(236, 72, 153, 0.8)',   // Pink
+                  'rgba(248, 113, 113, 0.8)',  // Red
+                  'rgba(251, 146, 60, 0.8)'    // Orange
+                ],
+                borderWidth: 1
+              }]
             },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return `Leads: ${context.raw}`;
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'right',
+                  labels: {
+                    boxWidth: 12,
+                    font: {
+                      size: 11
+                    }
+                  }
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const value = context.raw;
+                      const total = activityData.reduce((a, b) => a + b, 0);
+                      const percentage = ((value / total) * 100).toFixed(1);
+                      return `${context.label}: ${value} (${percentage}%)`;
+                    }
+                  }
                 }
               }
             }
-          },
-          scales: {
-            y: {
-              ticks: {
-                font: {
-                  size: 12
+          });
+          console.log("Activity type chart created successfully");
+        } else {
+          console.error("Activity type chart element not found");
+        }
+      } catch (error) {
+        console.error("Error creating activity type chart:", error);
+      }
+    }
+    
+    // Update activity type chart with filtered data
+    function updateActivityTypeChart(filteredData) {
+      try {
+        if (!window.activityChart) {
+          console.warn("Activity chart not initialized - cannot update");
+          return;
+        }
+        
+        // Calculate new counts for each activity type
+        const activityCounts = {};
+        filteredData.forEach(lead => {
+          const activity = lead['Activity Type'] || 'Unknown';
+          activityCounts[activity] = (activityCounts[activity] || 0) + 1;
+        });
+        
+        // Update chart data
+        window.activityChart.data.datasets[0].data = window.activityChart.data.labels.map(
+          label => activityCounts[label] || 0
+        );
+        
+        // Update the chart
+        window.activityChart.update();
+        console.log("Activity type chart updated with filtered data");
+      } catch (error) {
+        console.error("Error updating activity type chart:", error);
+      }
+    }
+    
+    // Create the modern state distribution chart
+    function createModernStateChart() {
+      try {
+        console.log("Creating state distribution chart");
+        
+        // Get state count data
+        const stateData = {};
+        
+        <% 
+        // Calculate state counts
+        const stateCounts = {};
+        states.forEach(state => { stateCounts[state] = 0; });
+        
+        leads.forEach(lead => {
+          if (lead.Address) {
+            states.forEach(state => {
+              if (lead.Address.toLowerCase().includes(state.toLowerCase())) {
+                stateCounts[state] = (stateCounts[state] || 0) + 1;
+              }
+            });
+          }
+        });
+        
+        // Sort states by count (descending)
+        const sortedStates = Object.keys(stateCounts)
+          .filter(state => stateCounts[state] > 0)
+          .sort((a, b) => stateCounts[b] - stateCounts[a])
+          .slice(0, 10); // Get top 10 states
+        %>
+        
+        // Prepare data for chart
+        const stateLabels = [<% sortedStates.forEach((state, index) => { %>'<%= state %>'<%= index < sortedStates.length - 1 ? ',' : '' %><% }); %>];
+        const stateCounts = [<% sortedStates.forEach((state, index) => { %><%= stateCounts[state] %><%= index < sortedStates.length - 1 ? ',' : '' %><% }); %>];
+        
+        console.log("State Labels:", stateLabels);
+        console.log("State Counts:", stateCounts);
+        
+        // Get element and check if it exists
+        const stateElement = document.getElementById('stateDistributionChart');
+        if (!stateElement) {
+          console.error("State distribution chart element not found");
+          return;
+        }
+        
+        // Create chart if we have valid state data
+        if (stateLabels.length === 0) {
+          stateElement.parentNode.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full p-8 text-center">
+              <div class="text-5xl text-gray-300 mb-4">
+                <i class="fas fa-chart-bar"></i>
+              </div>
+              <h3 class="text-xl font-medium text-gray-700 mb-2">No State Data Available</h3>
+              <p class="text-gray-500">
+                No state information was found in the current lead data.
+              </p>
+            </div>
+          `;
+          console.warn("No state data available for chart");
+        } else {
+          const ctx = stateElement.getContext('2d');
+          window.stateChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: stateLabels,
+              datasets: [{
+                label: 'Number of Leads',
+                data: stateCounts,
+                backgroundColor: '#41C9C7',
+                borderColor: '#2B3A5C',
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              indexAxis: 'y',  // Creates horizontal bars
+              plugins: {
+                legend: {
+                  display: false
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      return `Leads: ${context.raw}`;
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  ticks: {
+                    font: {
+                      size: 12
+                    }
+                  }
+                },
+                x: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Number of Leads',
+                    font: {
+                      size: 14
+                    }
+                  }
                 }
               }
-            },
-            x: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Number of Leads',
-                font: {
-                  size: 14
+            }
+          });
+          console.log("State distribution chart created successfully");
+        }
+      } catch (error) {
+        console.error("Error creating state distribution chart:", error);
+      }
+    }
+    
+    // Create site type distribution chart
+    function createSiteTypeChart() {
+      try {
+        console.log("Creating site type distribution chart");
+        
+        // Get site type distribution
+        const siteTypeCounts = {};
+        
+        <% 
+        // Calculate site type counts
+        const siteTypeCounts = {};
+        leads.forEach(lead => {
+          const siteType = lead['Site Type'] || 'Unknown';
+          // Handle multiple site types separated by commas
+          if (siteType.includes(',')) {
+            const types = siteType.split(',').map(t => t.trim());
+            types.forEach(type => {
+              if (type) {
+                siteTypeCounts[type] = (siteTypeCounts[type] || 0) + 1;
+              }
+            });
+          } else {
+            siteTypeCounts[siteType] = (siteTypeCounts[siteType] || 0) + 1;
+          }
+        });
+        
+        // Sort site types by count (descending)
+        const sortedSiteTypes = Object.keys(siteTypeCounts)
+          .filter(type => type !== 'Unknown' && type !== '')
+          .sort((a, b) => siteTypeCounts[b] - siteTypeCounts[a])
+          .slice(0, 8); // Get top 8 site types
+        %>
+        
+        // Prepare data for the chart
+        const siteTypeLabels = [<% sortedSiteTypes.forEach((type, index) => { %>'<%= type %>'<%= index < sortedSiteTypes.length - 1 ? ',' : '' %><% }); %>];
+        const siteTypeData = [<% sortedSiteTypes.forEach((type, index) => { %><%= siteTypeCounts[type] %><%= index < sortedSiteTypes.length - 1 ? ',' : '' %><% }); %>];
+        
+        console.log("Site Type Labels:", siteTypeLabels);
+        console.log("Site Type Data:", siteTypeData);
+        
+        // Check if element exists before creating chart
+        const siteTypeElement = document.getElementById('siteTypeChart');
+        if (!siteTypeElement) {
+          console.error("Site type chart element not found");
+          return;
+        }
+        
+        // Create the chart
+        const ctx = siteTypeElement.getContext('2d');
+        window.siteTypeChart = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: siteTypeLabels,
+            datasets: [{
+              data: siteTypeData,
+              backgroundColor: [
+                'rgba(59, 130, 246, 0.8)',   // Blue
+                'rgba(65, 201, 199, 0.8)',   // Teal
+                'rgba(16, 185, 129, 0.8)',   // Green
+                'rgba(251, 146, 60, 0.8)',   // Orange
+                'rgba(248, 113, 113, 0.8)',  // Red
+                'rgba(236, 72, 153, 0.8)',   // Pink
+                'rgba(139, 92, 246, 0.8)',   // Purple
+                'rgba(99, 102, 241, 0.8)'    // Indigo
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: {
+                  boxWidth: 12,
+                  font: {
+                    size: 11
+                  }
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const value = context.raw;
+                    const total = siteTypeData.reduce((a, b) => a + b, 0);
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    return `${context.label}: ${value} (${percentage}%)`;
+                  }
                 }
               }
             }
           }
+        });
+        console.log("Site type chart created successfully");
+      } catch (error) {
+        console.error("Error creating site type chart:", error);
+      }
+    }
+    
+    // Update state chart with filtered data
+    function updateStateChart(filteredData) {
+      try {
+        if (!window.stateChart) {
+          console.warn("State chart not initialized - cannot update");
+          return;
         }
-      });
-    });
-  </script>
+        
+        // Calculate new counts for each state
+        const stateCounts = {};
+        const states = <%- JSON.stringify(states) %>;
+        
+        states.forEach(state => { stateCounts[state] = 0; });
+        
+        filteredData.forEach(lead => {
+          if (lead.Address) {
+            states.forEach(state => {
+              if (lead.Address.toLowerCase().includes(state.toLowerCase())) {
+                stateCounts[state] = (stateCounts[state] || 0) + 1;
+              }
+            });
+          }
+        });
+        
+        // Get the top 10 states from the chart labels
+        const topStates = window.stateChart.data.labels;
+        
+        // Update chart data
+        window.stateChart.data.datasets[0].data = topStates.map(
+          state => stateCounts[state] || 0
+        );
+        
+        // Update the chart
+        window.stateChart.update();
+        console.log("State distribution chart updated with filtered data");
+      } catch (error) {
+        console.error("Error updating state chart:", error);
+      }
+    }
+    
+    // Update site type chart with filtered data
+    function updateSiteTypeChart(filteredData) {
+      try {
+        if (!window.siteTypeChart) {
+          console.warn("Site type chart not initialized - cannot update");
+          return;
+        }
+        
+        // Calculate new counts for each site type
+        const siteTypeCounts = {};
+        
+        filteredData.forEach(lead => {
+          const siteType = lead['Site Type'] || 'Unknown';
+          // Handle multiple site types separated by commas
+          if (siteType.includes(',')) {
+            const types = siteType.split(',').map(t => t.trim());
+            types.forEach(type => {
+              if (type) {
+                siteTypeCounts[type] = (siteTypeCounts[type] || 0) + 1;
+              }
+            });
+          } else {
+            siteTypeCounts[siteType] = (siteTypeCounts[siteType] || 0) + 1;
+          }
+        });
+        
+        // Get the site types from the chart labels
+        const chartSiteTypes = window.siteTypeChart.data.labels;
+        
+        // Update chart data
+        window.siteTypeChart.data.datasets[0].data = chartSiteTypes.map(
+          type => siteTypeCounts[type] || 0
+        );
+        
+        // Update the chart
+        window.siteTypeChart.update();
+        console.log("Site type chart updated with filtered data");
+      } catch (error) {
+        console.error("Error updating site type chart:", error);
+      }
+    }
+    
+    // Initialize the map for the heatmap
+    function initializeMap() {
+      try {
+        console.log("Initializing map");
+        
+        // Check if heatmap container exists
+        const heatmapContainer = document.getElementById('heatmapContainer');
+        if (!heatmapContainer) {
+          console.error("Heatmap container element not found");
+          return;
+        }
+        
+        // Check if libraries are loaded
+       console.log('Checking if required libraries are loaded:');
+       console.log('- Leaflet available:', typeof L !== 'undefined');
+       console.log('- HeatmapOverlay available:', typeof HeatmapOverlay !== 'undefined');
+       
+       // If HeatmapOverlay is not defined, try to alert the user
+       if (typeof HeatmapOverlay === 'undefined') {
+         console.error('HeatmapOverlay library not loaded correctly!');
+         heatmapContainer.innerHTML = `
+           <div class="flex flex-col items-center justify-center h-full p-8 text-center bg-red-50">
+             <div class="text-5xl text-red-300 mb-4">
+               <i class="fas fa-exclamation-triangle"></i>
+             </div>
+             <h3 class="text-xl font-medium text-red-700 mb-2">Library Not Loaded</h3>
+             <p class="text-red-500">
+               Heatmap library could not be loaded. Please check your internet connection 
+               and make sure CDN access is not blocked.
+             </p>
+           </div>
+         `;
+         return;
+       }
+   
+       // Add coordinate debugging
+       console.log('Leads with coordinates:');
+       <% 
+       // Log records with valid coordinates
+       const validLocations = leads.filter(lead => 
+         lead.Latitude && lead.Longitude && 
+         !isNaN(lead.Latitude) && !isNaN(lead.Longitude));
+       
+       // Log the count and first few records
+       %>
+       console.log('Valid location count: <%= validLocations.length %>');
+       
+       <% if (validLocations.length > 0) { %>
+         // Log a few sample coordinates if they exist
+         console.log('Sample coordinates:');
+         <% validLocations.slice(0, 3).forEach((lead, index) => { %>
+           console.log('Lead <%= index + 1 %>: <%= lead.Company %>, Lat: <%= lead.Latitude %>, Lng: <%= lead.Longitude %>');
+         <% }); %>
+       <% } else { %>
+         console.log('No valid coordinates found in any leads!');
+       <% } %>
+       
+       // Initialize the map centered on the United States
+       try {
+         console.log('Initializing heatmap...');
+         const map = L.map('heatmapContainer').setView([39.8283, -98.5795], 4);
+         
+         // Add the base map layer (using OpenStreetMap)
+         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+           maxZoom: 18
+         }).addTo(map);
+         
+         // Check for valid location data first
+         const validLocationCount = <%= validLocations.length %>;
+         console.log(`Valid location count: ${validLocationCount}`);
+         
+         if (validLocationCount === 0) {
+           // Display a message if no valid coordinates are found
+           console.log('No valid coordinates found, showing fallback message');
+           heatmapContainer.innerHTML = `
+             <div class="flex flex-col items-center justify-center h-full p-8 text-center">
+               <div class="text-5xl text-gray-300 mb-4">
+                 <i class="fas fa-map-marker-alt"></i>
+               </div>
+               <h3 class="text-xl font-medium text-gray-700 mb-2">No Location Data Available</h3>
+               <p class="text-gray-500">
+                 No valid coordinates were found in the current lead data. 
+                 Please ensure your SmartSuite records contain latitude and longitude information.
+               </p>
+             </div>
+           `;
+         } else {
+           
+           // Create a locations map to count records at the same coordinates
+           console.log('Aggregating location data for heatmap...');
+           const locationCounts = {};
+
+           // Pre-process all coordinates first
+           const coordinateData = [
+             <% validLocations.forEach((lead, leadIndex) => { %>
+               {
+                 index: <%= leadIndex %>,
+                 lat: <%= lead.Latitude %>,
+                 lng: <%= lead.Longitude %>,
+                 company: '<%= lead.Company ? lead.Company.replace(/'/g, "\\'") : "N/A" %>',
+                 jobs: <%= lead['Estimated New Jobs'] || 1 %>,
+                 activity: '<%= (lead["Activity Type"] || "N/A").replace(/'/g, "\\'") %>'
+               }<%= leadIndex < validLocations.length - 1 ? ',' : '' %>
+             <% }); %>
+           ];
+
+           // Now process them to create the location counts
+           coordinateData.forEach(point => {
+             // Round coordinates to 5 decimal places to group nearby points
+             const roundedLat = Math.round(point.lat * 100000) / 100000;
+             const roundedLng = Math.round(point.lng * 100000) / 100000;
+             const key = `${roundedLat},${roundedLng}`;
+             
+             if (!locationCounts[key]) {
+               locationCounts[key] = {
+                 lat: point.lat,
+                 lng: point.lng,
+                 count: 0,
+                 jobs: 0
+               };
+             }
+             locationCounts[key].count += 1;
+             locationCounts[key].jobs += point.jobs;
+           });
+           
+           // Convert to array for heatmap
+           const pointsData = Object.values(locationCounts);
+           const maxCount = Math.max(...pointsData.map(loc => loc.count));
+           
+           console.log(`Aggregated ${Object.keys(locationCounts).length} unique locations from ${validLocationCount} records`);
+           console.log('Maximum concentration:', maxCount);
+           
+           const heatmapData = {
+             max: maxCount,
+             data: pointsData.map(loc => ({
+               lat: loc.lat,
+               lng: loc.lng,
+               value: loc.count  // Use count to show concentration
+             }))
+           };
+           
+           console.log('Heatmap data prepared:', heatmapData);
+           
+           // Configure the heatmap layer to better show data concentrations
+           const heatmapConfig = {
+             "radius": 15,             // Smaller radius to show more defined clusters
+             "maxOpacity": 0.7,        // Slightly reduced opacity
+             "scaleRadius": false,     // Don't scale radius based on zoom level
+             "useLocalExtrema": true,  // Use local extremes to better show relative density
+             "blur": 0.75,             // Some blur, but not too much
+             "latField": 'lat',
+             "lngField": 'lng',
+             "valueField": 'value',
+             "gradient": {             // Custom gradient to better show intensity differences
+               '0.0': 'rgba(0,0,255,0)',
+               '0.25': 'rgba(0,0,255,0.5)',
+               '0.5': 'rgba(0,255,0,0.7)',
+               '0.75': 'rgba(255,255,0,0.8)',
+               '1.0': 'rgba(255,0,0,1)'
+             }
+           };
+           
+           // Try to initialize the heatmap layer
+             try {
+               console.log('Initializing heatmap layer...');
+               const heatmapLayer = new HeatmapOverlay(heatmapConfig);
+               heatmapLayer.setData(heatmapData);
+               map.addLayer(heatmapLayer);
+               console.log('Heatmap layer added successfully');
+               
+               // Add all points as small markers (in addition to the heatmap)
+               coordinateData.forEach((point, idx) => {
+                 const smallMarker = L.circleMarker([point.lat, point.lng], {
+                   radius: 3,
+                   color: '#000',
+                   weight: 1,
+                   opacity: 0.5,
+                   fillColor: '#2B3A5C',
+                   fillOpacity: 0.7
+                 }).addTo(map);
+                 
+                 smallMarker.bindPopup(`
+                   <strong>${point.company}</strong><br>
+                   Estimated Jobs: ${point.jobs}<br>
+                   Activity: ${point.activity}
+                 `);
+               });
+               
+               // City search - Add circle and marker if city search is active
+               <% if (locals.citySearchCoordinates) { %>
+                 // Add a circle to show the search radius
+                 const cityCenter = [<%= citySearchCoordinates.latitude %>, <%= citySearchCoordinates.longitude %>];
+                 const radiusInMeters = <%= citySearchRadius %> * 1609.34; // Convert miles to meters
+                 
+                 // Create a circle showing the search radius
+                 const radiusCircle = L.circle(cityCenter, {
+                   color: '#41C9C7',
+                   fillColor: '#41C9C7',
+                   fillOpacity: 0.1,
+                   weight: 2,
+                   radius: radiusInMeters
+                 }).addTo(map);
+                 
+                 // Create a marker for the city
+                 const cityMarker = L.marker(cityCenter, {
+                   icon: L.divIcon({
+                     className: 'city-marker',
+                     html: '<div style="background-color:#41C9C7; width:12px; height:12px; border-radius:50%; border:2px solid white;"></div>',
+                     iconSize: [12, 12],
+                     iconAnchor: [6, 6]
+                   })
+                 }).addTo(map);
+                 
+                 // Add a popup for the city
+                 cityMarker.bindPopup(`
+                   <strong><%= citySearchCoordinates.displayName %></strong><br>
+                   Showing leads within <%= citySearchRadius %> miles
+                 `).openPopup();
+                 
+                 // Center map on the city with appropriate zoom level
+                 map.setView(cityCenter, getZoomForRadius(<%= citySearchRadius %>));
+                 
+                 // Function to determine zoom level based on radius
+                 function getZoomForRadius(radius) {
+                   if (radius <= 10) return 11;
+                   if (radius <= 25) return 10;
+                   if (radius <= 50) return 9;
+                   if (radius <= 100) return 8;
+                   if (radius <= 250) return 7;
+                   return 6;
+                 }
+               <% } %>
+               
+             } catch (heatmapError) {
+               console.error('Error initializing heatmap:', heatmapError);
+               console.log('Falling back to marker cluster visualization');
+               
+               // If HeatmapOverlay is not working, use marker clustering as fallback
+               if (typeof L.markerClusterGroup === 'function') {
+                 console.log('Using MarkerCluster as fallback visualization');
+                 
+                 // Create a marker cluster group
+                 const markers = L.markerClusterGroup();
+                 
+                 // Add each lead as a marker
+                 coordinateData.forEach((point) => {
+                   const clusterMarker = L.marker([point.lat, point.lng]);
+                   clusterMarker.bindPopup(`
+                     <strong>${point.company}</strong><br>
+                     Estimated Jobs: ${point.jobs}<br>
+                     Activity: ${point.activity}
+                   `);
+                   markers.addLayer(clusterMarker);
+                 });
+                 
+                 // Add to map
+                 map.addLayer(markers);
+                 
+                 // Add a title in the corner explaining we're using markers instead of heatmap
+                 const info = L.control({position: 'topright'});
+                 info.onAdd = function (map) {
+                   const div = L.DomUtil.create('div', 'info');
+                   div.style.backgroundColor = 'white';
+                   div.style.padding = '6px 8px';
+                   div.style.borderRadius = '5px';
+                   div.style.boxShadow = '0 1px 5px rgba(0,0,0,0.2)';
+                   div.style.fontSize = '12px';
+                   div.innerHTML = 'Showing markers instead of heatmap';
+                   return div;
+                 };
+                 info.addTo(map);
+                 
+                 // Add city search circle and marker if needed (for marker cluster fallback)
+                 <% if (locals.citySearchCoordinates) { %>
+                   // Add a circle to show the search radius
+                   const cityCenter = [<%= citySearchCoordinates.latitude %>, <%= citySearchCoordinates.longitude %>];
+                   const radiusInMeters = <%= citySearchRadius %> * 1609.34; // Convert miles to meters
+                   
+                   // Create a circle showing the search radius
+                   const radiusCircle = L.circle(cityCenter, {
+                     color: '#41C9C7',
+                     fillColor: '#41C9C7',
+                     fillOpacity: 0.1,
+                     weight: 2,
+                     radius: radiusInMeters
+                   }).addTo(map);
+                   
+                   // Create a marker for the city
+                   const cityMarker = L.marker(cityCenter, {
+                     icon: L.divIcon({
+                       className: 'city-marker',
+                       html: '<div style="background-color:#41C9C7; width:12px; height:12px; border-radius:50%; border:2px solid white;"></div>',
+                       iconSize: [12, 12],
+                       iconAnchor: [6, 6]
+                     })
+                   }).addTo(map);
+                   
+                   // Add a popup for the city
+                   cityMarker.bindPopup(`
+                     <strong><%= citySearchCoordinates.displayName %></strong><br>
+                     Showing leads within <%= citySearchRadius %> miles
+                   `).openPopup();
+                   
+                   // Center map on the city with appropriate zoom level
+                   map.setView(cityCenter, getZoomForRadius(<%= citySearchRadius %>));
+                   
+                   // Function to determine zoom level based on radius
+                   function getZoomForRadius(radius) {
+                     if (radius <= 10) return 11;
+                     if (radius <= 25) return 10;
+                     if (radius <= 50) return 9;
+                     if (radius <= 100) return 8;
+                     if (radius <= 250) return 7;
+                     return 6;
+                   }
+                 <% } %>
+               }
+             }
+             
+             // Add a legend
+             const legend = L.control({position: 'bottomright'});
+             legend.onAdd = function (map) {
+               const div = L.DomUtil.create('div', 'info legend');
+               div.style.backgroundColor = 'white';
+               div.style.padding = '10px';
+               div.style.borderRadius = '5px';
+               div.style.boxShadow = '0 1px 5px rgba(0,0,0,0.2)';
+               
+               div.innerHTML = `
+                 <h4 style="margin:0 0 10px 0; font-weight:bold;">Lead Concentration</h4>
+                 <div style="display:flex; flex-direction:column; gap:5px;">
+                   <div style="display:flex; align-items:center; gap:5px;">
+                     <div style="width:20px; height:20px; background:rgba(255,0,0,1); border-radius:50%;"></div>
+                     <span>High</span>
+                   </div>
+                   <div style="display:flex; align-items:center; gap:5px;">
+                     <div style="width:20px; height:20px; background:rgba(255,255,0,0.8); border-radius:50%;"></div>
+                     <span>Medium</span>
+                   </div>
+                   <div style="display:flex; align-items:center; gap:5px;">
+                     <div style="width:20px; height:20px; background:rgba(0,255,0,0.7); border-radius:50%;"></div>
+                     <span>Low</span>
+                   </div>
+                   <div style="display:flex; align-items:center; gap:5px;">
+                     <div style="width:20px; height:20px; background:rgba(0,0,255,0.5); border-radius:50%;"></div>
+                     <span>Very Low</span>
+                   </div>
+                 </div>
+               `;
+               return div;
+             };
+             legend.addTo(map);
+           }
+         } catch (mapError) {
+           console.error('Error initializing map:', mapError);
+           heatmapContainer.innerHTML = `
+             <div class="flex flex-col items-center justify-center h-full p-8 text-center bg-red-50">
+               <div class="text-5xl text-red-300 mb-4">
+                 <i class="fas fa-exclamation-triangle"></i>
+               </div>
+               <h3 class="text-xl font-medium text-red-700 mb-2">Map Error</h3>
+               <p class="text-red-500">
+                 There was an error initializing the map: ${mapError.message}
+               </p>
+             </div>
+           `;
+         }
+     } catch (error) {
+       console.error("Error in initializeMap function:", error);
+     }
+   }
+ </script>
 </body>
 </html>
