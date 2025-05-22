@@ -516,6 +516,58 @@ async function loadSmartSuiteData() {
   }
 })();
 
+// Function to extract and count cities from lead addresses
+function calculateCityDistribution(leads) {
+  const cityCounts = {};
+  
+  leads.forEach(lead => {
+    if (lead.Address) {
+      // Extract city from address
+      const addressParts = lead.Address.split(',').map(part => part.trim());
+      
+      if (addressParts.length >= 2) {
+        let cityName = '';
+        
+        if (addressParts.length >= 3) {
+          // Format: "Street, City, State ZIP" - city is second part
+          cityName = addressParts[1];
+        } else if (addressParts.length === 2) {
+          // Format: "City, State" - city is first part
+          cityName = addressParts[0];
+        }
+        
+        // Clean up city name - remove numbers, extra spaces, and common prefixes
+        cityName = cityName.replace(/^\d+\s+/, '') // Remove leading numbers
+                          .replace(/\s+/g, ' ')    // Normalize spaces
+                          .trim();
+        
+        // Filter out very short names, numbers, or common non-city terms
+        if (cityName.length > 2 && 
+            !cityName.match(/^\d+$/) && 
+            !cityName.toLowerCase().includes('street') &&
+            !cityName.toLowerCase().includes('avenue') &&
+            !cityName.toLowerCase().includes('road') &&
+            !cityName.toLowerCase().includes('blvd') &&
+            !cityName.toLowerCase().includes('suite') &&
+            !cityName.toLowerCase().includes('drive') &&
+            !cityName.toLowerCase().includes('lane') &&
+            !cityName.toLowerCase().includes('way') &&
+            cityName !== 'N/A') {
+          
+          // Capitalize first letter of each word for consistency
+          cityName = cityName.split(' ')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                            .join(' ');
+          
+          cityCounts[cityName] = (cityCounts[cityName] || 0) + 1;
+        }
+      }
+    }
+  });
+  
+  return cityCounts;
+}
+
 // Calculate additional analytics for the dashboard
 function calculateDashboardMetrics(leads) {
   // Activity Type Distribution
@@ -549,10 +601,14 @@ function calculateDashboardMetrics(leads) {
     }
   });
   
+  // Add City Distribution
+  const cityCounts = calculateCityDistribution(leads);
+  
   return {
     activityCounts,
     timeframeCounts,
-    siteTypeCounts
+    siteTypeCounts,
+    cityCounts
   };
 }
 
@@ -597,6 +653,7 @@ app.get('/', (req, res) => {
     totalActivityTypes,
     activityCounts,
     dashboardMetrics,
+    cityCounts: dashboardMetrics.cityCounts,
     selectedState: null,
     searchTerm: null,
     isLoggedIn: req.session.loggedIn || false
@@ -644,6 +701,7 @@ app.get('/filter', (req, res) => {
     totalActivityTypes,
     activityCounts,
     dashboardMetrics,
+    cityCounts: dashboardMetrics.cityCounts,
     selectedState: state,
     searchTerm: null,
     isLoggedIn: req.session.loggedIn || false
@@ -674,6 +732,113 @@ app.get('/search', (req, res) => {
   const totalActivityTypes = activityTypes.length;
   
   // Activity type distribution
+  const activityCounts = {};
+  activityTypes.forEach(type => {
+    activityCounts[type] = filteredLeads.filter(lead => lead['Activity Type'] === type).length;
+  });
+  
+  // Calculate additional dashboard metrics
+  const dashboardMetrics = calculateDashboardMetrics(filteredLeads);
+  
+  res.render('dashboard', { 
+    leads: filteredLeads,
+    states: states,
+    totalLeads,
+    totalJobs,
+    totalActivityTypes,
+    activityCounts,
+    dashboardMetrics,
+    cityCounts: dashboardMetrics.cityCounts,
+    selectedState: null,
+    searchTerm: company, // Pass the search term to the template
+    isLoggedIn: req.session.loggedIn || false
+  });
+});
+
+// City search route - no login required
+app.get('/city-search', async (req, res) => {
+  const { city, radius } = req.query;
+  
+  if (!city || city.trim() === '') {
+    return res.redirect('/');
+  }
+  
+  // Convert radius to number, default to 50 miles if invalid
+  const searchRadius = parseFloat(radius) || 50;
+  
+  try {
+    // Geocode the city to get coordinates
+    const cityCoordinates = await geocodeCity(city);
+    
+    if (!cityCoordinates) {
+      // If geocoding fails, render with error message
+      const states = Object.values(stateFullNames).sort();
+      
+      // Calculate basic metrics with all leads since we can't filter
+      const totalLeads = leadsData.length;
+      const totalJobs = leadsData.reduce((sum, lead) => sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
+      const activityTypes = [...new Set(leadsData.map(lead => lead['Activity Type'] || 'Unknown'))];
+      const totalActivityTypes = activityTypes.length;
+      
+      // Activity type distribution
+      const activityCounts = {};
+      activityTypes.forEach(type => {
+        activityCounts[type] = leadsData.filter(lead => lead['Activity Type'] === type).length;
+      });
+      
+      // Calculate additional dashboard metrics
+      const dashboardMetrics = calculateDashboardMetrics(leadsData);
+      
+      return res.render('dashboard', {
+        leads: [],
+        states: states,
+        totalLeads: 0,
+        totalJobs: 0,
+        totalActivityTypes: 0,
+        activityCounts: {},
+        dashboardMetrics,
+        cityCounts: {},
+        selectedState: null,
+        searchTerm: null,
+        citySearchTerm: city,
+        citySearchRadius: searchRadius,
+        citySearchError: `Could not find coordinates for "${city}". Please try a different city name.`,
+        isLoggedIn: req.session.loggedIn || false
+      });
+    }
+    
+    // Filter leads within the specified radius
+    const filteredLeads = leadsData.filter(lead => {
+      // Skip leads without coordinates
+      if (!lead.Latitude || !lead.Longitude || isNaN(lead.Latitude) || isNaN(lead.Longitude)) {
+        return false;
+      }
+      
+      // Calculate distance
+      const distance = calculateDistance(
+        cityCoordinates.latitude,
+        cityCoordinates.longitude,
+        lead.Latitude,
+        lead.Longitude
+      );
+      
+      // Add distance to the lead object for display
+      lead.distance = distance.toFixed(1);
+      
+      // Include if within radius
+      return distance <= searchRadius;
+    });
+    
+    // Sort by distance (closest first)
+    filteredLeads.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+    
+    // Calculate metrics for filtered leads
+    const totalLeads = filteredLeads.length;
+    const totalJobs = filteredLeads.reduce((sum, lead) => sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
+    const activityTypes = [...new Set(filteredLeads.map(lead => lead['Activity Type'] || 'Unknown'))];
+    const totalActivityTypes = activityTypes.length;
+    
+    // Activity type distribution
     const activityCounts = {};
     activityTypes.forEach(type => {
       activityCounts[type] = filteredLeads.filter(lead => lead['Activity Type'] === type).length;
@@ -682,7 +847,10 @@ app.get('/search', (req, res) => {
     // Calculate additional dashboard metrics
     const dashboardMetrics = calculateDashboardMetrics(filteredLeads);
     
-    res.render('dashboard', { 
+    // Generate a complete list of all 50 states
+    const states = Object.values(stateFullNames).sort();
+    
+    res.render('dashboard', {
       leads: filteredLeads,
       states: states,
       totalLeads,
@@ -690,167 +858,89 @@ app.get('/search', (req, res) => {
       totalActivityTypes,
       activityCounts,
       dashboardMetrics,
+      cityCounts: dashboardMetrics.cityCounts,
       selectedState: null,
-      searchTerm: company, // Pass the search term to the template
+      searchTerm: null,
+      citySearchTerm: city,
+      citySearchRadius: searchRadius,
+      citySearchCoordinates: cityCoordinates,
       isLoggedIn: req.session.loggedIn || false
     });
-  });
-  
-  // City search route - no login required
-  app.get('/city-search', async (req, res) => {
-    const { city, radius } = req.query;
-    
-    if (!city || city.trim() === '') {
-      return res.redirect('/');
-    }
-    
-    // Convert radius to number, default to 50 miles if invalid
-    const searchRadius = parseFloat(radius) || 50;
-    
-    try {
-      // Geocode the city to get coordinates
-      const cityCoordinates = await geocodeCity(city);
-      
-      if (!cityCoordinates) {
-        // If geocoding fails, render with error message
-        const states = Object.values(stateFullNames).sort();
-        
-        // Calculate basic metrics with all leads since we can't filter
-        const totalLeads = leadsData.length;
-        const totalJobs = leadsData.reduce((sum, lead) => sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
-        const activityTypes = [...new Set(leadsData.map(lead => lead['Activity Type'] || 'Unknown'))];
-        const totalActivityTypes = activityTypes.length;
-        
-        // Activity type distribution
-        const activityCounts = {};
-        activityTypes.forEach(type => {
-          activityCounts[type] = leadsData.filter(lead => lead['Activity Type'] === type).length;
-        });
-        
-        // Calculate additional dashboard metrics
-        const dashboardMetrics = calculateDashboardMetrics(leadsData);
-        
-        return res.render('dashboard', {
-          leads: [],
-          states: states,
-          totalLeads: 0,
-          totalJobs: 0,
-          totalActivityTypes: 0,
-          activityCounts: {},
-          dashboardMetrics,
-          selectedState: null,
-          searchTerm: null,
-          citySearchTerm: city,
-          citySearchRadius: searchRadius,
-          citySearchError: `Could not find coordinates for "${city}". Please try a different city name.`,
-          isLoggedIn: req.session.loggedIn || false
-        });
-      }
-      
-      // Filter leads within the specified radius
-      const filteredLeads = leadsData.filter(lead => {
-        // Skip leads without coordinates
-        if (!lead.Latitude || !lead.Longitude || isNaN(lead.Latitude) || isNaN(lead.Longitude)) {
-          return false;
-        }
-        
-        // Calculate distance
-        const distance = calculateDistance(
-          cityCoordinates.latitude,
-          cityCoordinates.longitude,
-          lead.Latitude,
-          lead.Longitude
-        );
-        
-        // Add distance to the lead object for display
-        lead.distance = distance.toFixed(1);
-        
-        // Include if within radius
-        return distance <= searchRadius;
-      });
-      
-      // Sort by distance (closest first)
-      filteredLeads.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
-      
-      // Calculate metrics for filtered leads
-      const totalLeads = filteredLeads.length;
-      const totalJobs = filteredLeads.reduce((sum, lead) => sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
-      const activityTypes = [...new Set(filteredLeads.map(lead => lead['Activity Type'] || 'Unknown'))];
-      const totalActivityTypes = activityTypes.length;
-      
-      // Activity type distribution
-      const activityCounts = {};
-      activityTypes.forEach(type => {
-        activityCounts[type] = filteredLeads.filter(lead => lead['Activity Type'] === type).length;
-      });
-      
-      // Calculate additional dashboard metrics
-      const dashboardMetrics = calculateDashboardMetrics(filteredLeads);
-      
-      // Generate a complete list of all 50 states
-      const states = Object.values(stateFullNames).sort();
-      
-      res.render('dashboard', {
-        leads: filteredLeads,
-        states: states,
-        totalLeads,
-        totalJobs,
-        totalActivityTypes,
-        activityCounts,
-        dashboardMetrics,
-        selectedState: null,
-        searchTerm: null,
-        citySearchTerm: city,
-        citySearchRadius: searchRadius,
-        citySearchCoordinates: cityCoordinates,
-        isLoggedIn: req.session.loggedIn || false
-      });
-    } catch (error) {
-      console.error('City search error:', error);
-      // If there's an error, redirect to the home page
-      res.redirect('/');
-    }
-  });
-  
-  // Login routes
-  app.get('/login', (req, res) => {
-    res.render('login', { error: null });
-  });
-  
-  app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    
-    if (username === credentials.username) {
-      const match = await bcrypt.compare(password, credentials.passwordHash);
-      if (match) {
-        req.session.loggedIn = true;
-        
-        // Redirect to settings if they were trying to access settings
-        // Otherwise redirect to dashboard
-        const returnTo = req.session.returnTo || '/';
-        delete req.session.returnTo;
-        return res.redirect(returnTo);
-      }
-    }
-    
-    res.render('login', { error: 'Invalid username or password' });
-  });
-  
-  app.get('/logout', (req, res) => {
-    req.session.destroy();
+  } catch (error) {
+    console.error('City search error:', error);
+    // If there's an error, redirect to the home page
     res.redirect('/');
-  });
+  }
+});
+
+// Login routes
+app.get('/login', (req, res) => {
+  res.render('login', { error: null });
+});
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
   
-  // Settings routes - requires login
-  app.get('/settings', (req, res, next) => {
-    if (!req.session.loggedIn) {
-      req.session.returnTo = '/settings';
-      return res.redirect('/login');
+  if (username === credentials.username) {
+    const match = await bcrypt.compare(password, credentials.passwordHash);
+    if (match) {
+      req.session.loggedIn = true;
+      
+      // Redirect to settings if they were trying to access settings
+      // Otherwise redirect to dashboard
+      const returnTo = req.session.returnTo || '/';
+      delete req.session.returnTo;
+      return res.redirect(returnTo);
     }
-    next();
-  }, (req, res) => {
+  }
+  
+  res.render('login', { error: 'Invalid username or password' });
+});
+
+app.get('/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/');
+});
+
+// Settings routes - requires login
+app.get('/settings', (req, res, next) => {
+  if (!req.session.loggedIn) {
+    req.session.returnTo = '/settings';
+    return res.redirect('/login');
+  }
+  next();
+}, (req, res) => {
+  res.render('settings', { 
+    message: null, 
+    config: {
+      apiKey: smartsuiteConfig.apiKey ? '********' : '',
+      appId: smartsuiteConfig.appId,
+      tableId: smartsuiteConfig.tableId,
+      accountId: smartsuiteConfig.accountId
+    }
+  });
+});
+
+// Route to update SmartSuite API settings
+app.post('/update-api-config', requireLogin, async (req, res) => {
+  const { apiKey, appId, tableId, accountId } = req.body;
+  
+  // Update configuration - only update fields that are not empty
+  smartsuiteConfig = {
+    apiKey: apiKey || smartsuiteConfig.apiKey,
+    appId: appId || smartsuiteConfig.appId,
+    tableId: tableId || smartsuiteConfig.tableId,
+    accountId: accountId || smartsuiteConfig.accountId
+  };
+  
+  // Save configuration (implement your preferred method)
+  // For example: fs.writeFileSync('./config.json', JSON.stringify(smartsuiteConfig));
+  
+  try {
+    // Refresh data from API
+    leadsData = await loadSmartSuiteData();
     res.render('settings', { 
-      message: null, 
+      message: 'API configuration updated and data refreshed successfully!',
       config: {
         apiKey: smartsuiteConfig.apiKey ? '********' : '',
         appId: smartsuiteConfig.appId,
@@ -858,107 +948,78 @@ app.get('/search', (req, res) => {
         accountId: smartsuiteConfig.accountId
       }
     });
-  });
-  
-  // Route to update SmartSuite API settings
-  app.post('/update-api-config', requireLogin, async (req, res) => {
-    const { apiKey, appId, tableId, accountId } = req.body;
-    
-    // Update configuration - only update fields that are not empty
-    smartsuiteConfig = {
-      apiKey: apiKey || smartsuiteConfig.apiKey,
-      appId: appId || smartsuiteConfig.appId,
-      tableId: tableId || smartsuiteConfig.tableId,
-      accountId: accountId || smartsuiteConfig.accountId
-    };
-    
-    // Save configuration (implement your preferred method)
-    // For example: fs.writeFileSync('./config.json', JSON.stringify(smartsuiteConfig));
-    
-    try {
-      // Refresh data from API
-      leadsData = await loadSmartSuiteData();
-      res.render('settings', { 
-        message: 'API configuration updated and data refreshed successfully!',
-        config: {
-          apiKey: smartsuiteConfig.apiKey ? '********' : '',
-          appId: smartsuiteConfig.appId,
-          tableId: smartsuiteConfig.tableId,
-          accountId: smartsuiteConfig.accountId
-        }
-      });
-    } catch (error) {
-      console.error('Error updating API config:', error);
-      res.render('settings', { 
-        message: `Error updating API configuration: ${error.message}`,
-        config: {
-          apiKey: smartsuiteConfig.apiKey ? '********' : '',
-          appId: smartsuiteConfig.appId,
-          tableId: smartsuiteConfig.tableId,
-          accountId: smartsuiteConfig.accountId
-        }
-      });
-    }
-  });
-  
-  // Route to manually refresh data
-  app.post('/refresh-data', requireLogin, async (req, res) => {
-    try {
-      leadsData = await loadSmartSuiteData();
-      res.render('settings', { 
-        message: 'Data refreshed successfully!',
-        config: {
-          apiKey: smartsuiteConfig.apiKey ? '********' : '',
-          appId: smartsuiteConfig.appId,
-          tableId: smartsuiteConfig.tableId,
-          accountId: smartsuiteConfig.accountId
-        }
-      });
-    } catch (error) {
-      console.error('Error refreshing data:', error);
-      res.render('settings', { 
-        message: `Error refreshing data: ${error.message}`,
-        config: {
-          apiKey: smartsuiteConfig.apiKey ? '********' : '',
-          appId: smartsuiteConfig.appId,
-          tableId: smartsuiteConfig.tableId,
-          accountId: smartsuiteConfig.accountId
-        }
-      });
-    }
-  });
-  
-  // API route for dashboard data (for potential AJAX updates)
-  app.get('/api/dashboard-data', (req, res) => {
-    // Calculate summary metrics
-    const totalLeads = leadsData.length;
-    const totalJobs = leadsData.reduce((sum, lead) => sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
-    const avgJobsPerLead = Math.round(totalJobs / (totalLeads || 1));
-    
-    // Calculate additional dashboard metrics
-    const dashboardMetrics = calculateDashboardMetrics(leadsData);
-    
-    // Return JSON data
-    res.json({
-      summary: {
-        totalLeads,
-        totalJobs,
-        avgJobsPerLead,
-        totalActivityTypes: Object.keys(dashboardMetrics.activityCounts).length
-      },
-      distribution: dashboardMetrics
+  } catch (error) {
+    console.error('Error updating API config:', error);
+    res.render('settings', { 
+      message: `Error updating API configuration: ${error.message}`,
+      config: {
+        apiKey: smartsuiteConfig.apiKey ? '********' : '',
+        appId: smartsuiteConfig.appId,
+        tableId: smartsuiteConfig.tableId,
+        accountId: smartsuiteConfig.accountId
+      }
     });
-  });
+  }
+});
+
+// Route to manually refresh data
+app.post('/refresh-data', requireLogin, async (req, res) => {
+  try {
+    leadsData = await loadSmartSuiteData();
+    res.render('settings', { 
+      message: 'Data refreshed successfully!',
+      config: {
+        apiKey: smartsuiteConfig.apiKey ? '********' : '',
+        appId: smartsuiteConfig.appId,
+        tableId: smartsuiteConfig.tableId,
+        accountId: smartsuiteConfig.accountId
+      }
+    });
+  } catch (error) {
+    console.error('Error refreshing data:', error);
+    res.render('settings', { 
+      message: `Error refreshing data: ${error.message}`,
+      config: {
+        apiKey: smartsuiteConfig.apiKey ? '********' : '',
+        appId: smartsuiteConfig.appId,
+        tableId: smartsuiteConfig.tableId,
+        accountId: smartsuiteConfig.accountId
+      }
+    });
+  }
+});
+
+// API route for dashboard data (for potential AJAX updates)
+app.get('/api/dashboard-data', (req, res) => {
+  // Calculate summary metrics
+  const totalLeads = leadsData.length;
+  const totalJobs = leadsData.reduce((sum, lead) => sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
+  const avgJobsPerLead = Math.round(totalJobs / (totalLeads || 1));
   
-  // Add a route to serve favicon.ico to prevent 404 errors
-  app.get('/favicon.ico', (req, res) => {
-    // If favicon doesn't exist, create an empty one
-    if (!fs.existsSync('./public/favicon.ico')) {
-      fs.writeFileSync('./public/favicon.ico', '');
-    }
-    res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
-  });
+  // Calculate additional dashboard metrics
+  const dashboardMetrics = calculateDashboardMetrics(leadsData);
   
-  app.listen(port, () => {
-    console.log(`Lead Dashboard app listening at http://localhost:${port}`);
+  // Return JSON data
+  res.json({
+    summary: {
+      totalLeads,
+      totalJobs,
+      avgJobsPerLead,
+      totalActivityTypes: Object.keys(dashboardMetrics.activityCounts).length
+    },
+    distribution: dashboardMetrics
   });
+});
+
+// Add a route to serve favicon.ico to prevent 404 errors
+app.get('/favicon.ico', (req, res) => {
+  // If favicon doesn't exist, create an empty one
+  if (!fs.existsSync('./public/favicon.ico')) {
+    fs.writeFileSync('./public/favicon.ico', '');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
+});
+
+app.listen(port, () => {
+  console.log(`Lead Dashboard app listening at http://localhost:${port}`);
+});

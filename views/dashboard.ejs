@@ -351,6 +351,109 @@
 .detail-card-body::-webkit-scrollbar-thumb:hover {
   background: #41C9C7;
 }
+
+/* Sortable table styles */
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.sortable-header:hover {
+  background-color: rgba(65, 201, 199, 0.1);
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.sortable-header:hover .sort-icon {
+  opacity: 1;
+}
+
+.sort-icon.active {
+  opacity: 1;
+  color: #41C9C7;
+}
+
+.sort-icon i {
+  font-size: 10px;
+}
+
+/* Pagination styles */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+}
+
+.pagination-info {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-select {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background: white;
+}
+
+.pagination-btn {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #374151;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
+.pagination-btn.active {
+  background: #2B3A5C;
+  border-color: #2B3A5C;
+  color: white;
+}
+
+.pagination-btn.active:hover {
+  background: #1F2D4E;
+  border-color: #1F2D4E;
+}
+
+.pagination-input {
+  width: 60px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  text-align: center;
+  font-size: 0.875rem;
+}
   </style>
 </head>
 <body class="bg-gray-100">
@@ -638,10 +741,10 @@
       
       <!-- Main Charts - Second Row -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- State Distribution Chart -->
+        <!-- City Distribution Chart -->
         <div class="chart-card">
           <div class="chart-header">
-            <span>Top 10 States</span>
+            <span>Top 10 Lead Count</span>
             <i class="fas fa-map-marked-alt text-gray-400"></i>
           </div>
           <div class="chart-body">
@@ -681,9 +784,9 @@
     <div id="site-details-view" class="space-y-6" style="display: none;">
       <!-- Lead Count Summary -->
       <div class="bg-white shadow-md rounded-lg p-4 mb-6">
-        <h2 class="text-lg font-medium text-gray-700">Found <span class="font-bold text-indigo-600"><%= totalLeads %></span> leads
+        <h2 class="text-lg font-medium text-gray-700">Found <span class="font-bold text-indigo-600" id="filtered-leads-count"><%= totalLeads %></span> leads
           <% if (totalLeads > 0) { %>
-            with <span class="font-bold text-indigo-600"><%= totalJobs %></span> estimated new jobs
+            with <span class="font-bold text-indigo-600" id="filtered-jobs-count"><%= totalJobs %></span> estimated new jobs
           <% } %>
         </h2>
       </div>
@@ -692,43 +795,120 @@
       <div class="bg-white shadow-md rounded-lg overflow-hidden bg-opacity-90">
         <div class="p-6 border-b border-gray-200">
           <h2 class="text-2xl font-bold text-gray-800">Leads Table</h2>
-          <p class="text-sm text-gray-500 mt-1">Hover over a company to see detailed information</p>
+          <p class="text-sm text-gray-500 mt-1">Hover over a company to see detailed information. Click column headers to sort.</p>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full table-fixed">
             <thead class="table-header">
               <tr>
-                <!-- Columns including the new fields -->
-                <th class="px-6 py-3 text-left table-header-smaller tracking-wider company-column">Company</th>
-                <th class="px-6 py-3 text-left table-header-smaller tracking-wider site-type-column">Site Type</th>
-                <th class="px-6 py-3 text-left table-header-smaller tracking-wider address-column">Location</th>
-                <th class="px-6 py-3 text-left table-header-smaller tracking-wider activity-column">Activity Type</th>
-                <th class="px-6 py-3 text-left table-header-smaller tracking-wider timeframe-column">Origin Quarter</th>
-                <th class="px-6 py-3 text-left table-header-smaller tracking-wider jobs-column">Est. Jobs</th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider company-column sortable-header" 
+                    onclick="sortTable('Company')" data-column="Company">
+                  Company
+                  <span class="sort-icon" id="sort-icon-Company">
+                    <i class="fas fa-sort"></i>
+                  </span>
+                </th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider site-type-column sortable-header" 
+                    onclick="sortTable('Site Type')" data-column="Site Type">
+                  Site Type
+                  <span class="sort-icon" id="sort-icon-Site Type">
+                    <i class="fas fa-sort"></i>
+                  </span>
+                </th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider address-column sortable-header" 
+                    onclick="sortTable('Address')" data-column="Address">
+                  Location
+                  <span class="sort-icon" id="sort-icon-Address">
+                    <i class="fas fa-sort"></i>
+                  </span>
+                </th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider activity-column sortable-header" 
+                    onclick="sortTable('Activity Type')" data-column="Activity Type">
+                  Activity Type
+                  <span class="sort-icon" id="sort-icon-Activity Type">
+                    <i class="fas fa-sort"></i>
+                  </span>
+                </th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider timeframe-column sortable-header" 
+                    onclick="sortTable('Timeframe')" data-column="Timeframe">
+                  Origin Quarter
+                  <span class="sort-icon" id="sort-icon-Timeframe">
+                    <i class="fas fa-sort"></i>
+                  </span>
+                </th>
+                <th class="px-6 py-3 text-left table-header-smaller tracking-wider jobs-column sortable-header" 
+                    onclick="sortTable('Estimated New Jobs')" data-column="Estimated New Jobs">
+                  Est. Jobs
+                  <span class="sort-icon" id="sort-icon-Estimated New Jobs">
+                    <i class="fas fa-sort"></i>
+                  </span>
+                </th>
                 <!-- Distance column (only shown for city search) -->
                 <% if (locals.citySearchCoordinates) { %>
-                  <th class="px-6 py-3 text-left table-header-smaller tracking-wider distance-column">Distance</th>
+                  <th class="px-6 py-3 text-left table-header-smaller tracking-wider distance-column sortable-header" 
+                      onclick="sortTable('distance')" data-column="distance">
+                    Distance
+                    <span class="sort-icon" id="sort-icon-distance">
+                      <i class="fas fa-sort"></i>
+                    </span>
+                  </th>
                 <% } %>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200" id="leads-table-body">
-              <% leads.slice(0, 50).forEach(function(lead, index) { %>
-                <tr class="lead-row" data-index="<%= index %>">
-                  <!-- Columns including the new fields -->
-                  <td class="px-6 py-4 font-bold company-column wrap-text table-text-smaller"><%= lead.Company || 'N/A' %></td>
-                  <td class="px-6 py-4 site-type-column wrap-text table-text-smaller"><%= lead['Site Type'] || 'N/A' %></td>
-                  <td class="px-6 py-4 address-column address-with-breaks table-text-smaller"><%- (lead.Address || 'N/A').replace(/,\s*([^,]*?)$/g, '<br>$1') %></td>
-                  <td class="px-6 py-4 activity-column table-text-smaller"><%= lead['Activity Type'] || 'N/A' %></td>
-                  <td class="px-6 py-4 timeframe-column table-text-smaller"><%= lead['Timeframe'] || 'N/A' %></td>
-                  <td class="px-6 py-4 jobs-column table-text-smaller"><%= lead['Estimated New Jobs'] || 'N/A' %></td>
-                  <!-- Distance column (only shown for city search) -->
-                  <% if (locals.citySearchCoordinates) { %>
-                    <td class="px-6 py-4 distance-column table-text-smaller"><%= lead.distance ? lead.distance + ' mi' : 'N/A' %></td>
-                  <% } %>
-                </tr>
-              <% }); %>
+              <!-- Table rows will be populated by JavaScript -->
             </tbody>
           </table>
+        </div>
+        
+        <!-- Pagination Controls -->
+        <div class="pagination-container">
+          <div class="pagination-info">
+            <span id="pagination-info-text">Showing 1 to 25 of 0 results</span>
+          </div>
+          
+          <div class="pagination-controls">
+            <!-- Rows per page selector -->
+            <div class="flex items-center gap-2">
+              <label for="rows-per-page" class="text-sm text-gray-600">Rows per page:</label>
+              <select id="rows-per-page" class="pagination-select" onchange="changeRowsPerPage()">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </div>
+            
+            <!-- Page navigation -->
+            <div class="flex items-center gap-1">
+              <button id="first-page-btn" class="pagination-btn" onclick="goToPage(1)" title="First page">
+                <i class="fas fa-angle-double-left"></i>
+              </button>
+              <button id="prev-page-btn" class="pagination-btn" onclick="goToPage(currentPage - 1)" title="Previous page">
+                <i class="fas fa-angle-left"></i>
+              </button>
+              
+              <!-- Page numbers -->
+              <div id="page-numbers" class="flex gap-1">
+                <!-- Page numbers will be dynamically generated -->
+              </div>
+              
+              <button id="next-page-btn" class="pagination-btn" onclick="goToPage(currentPage + 1)" title="Next page">
+                <i class="fas fa-angle-right"></i>
+              </button>
+              <button id="last-page-btn" class="pagination-btn" onclick="goToPage(totalPages)" title="Last page">
+                <i class="fas fa-angle-double-right"></i>
+              </button>
+            </div>
+            
+            <!-- Go to page -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-gray-600">Go to page:</span>
+              <input type="number" id="goto-page-input" class="pagination-input" min="1" 
+                     onkeypress="handleGoToPageKeypress(event)" placeholder="1">
+              <button onclick="goToPageFromInput()" class="pagination-btn">Go</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -760,6 +940,197 @@
     timeframe: 'All Timeframes',
     company: ''
   };
+
+  // Sort state variables
+  let currentSortColumn = null;
+  let currentSortDirection = 'asc';
+  
+  // Pagination state variables
+  let currentPage = 1;
+  let rowsPerPage = 25;
+  let totalPages = 1;
+  let currentFilteredData = <%- JSON.stringify(leads) %>;
+  let currentDisplayedData = [];
+  
+  // Initialize pagination on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    try {
+      // Initialize filtered data
+      currentFilteredData = <%- JSON.stringify(leads) %>;
+      
+      // Update pagination and display first page
+      updatePagination();
+      displayCurrentPage();
+      
+      // Initialize other components
+      console.log("Creating charts...");
+      createTimeframeChart();
+      createActivityTypeChart();
+      createModernStateChart();
+      createSiteTypeChart();
+      
+      console.log("Initializing map...");
+      initializeMap();
+      
+      // Add event listener for reset filters button
+      const resetButton = document.getElementById('reset-filters');
+      if (resetButton) {
+        resetButton.addEventListener('click', resetFilters);
+      }
+      
+      initializeFiltersFromURL();
+      
+      console.log("Dashboard initialization complete");
+    } catch (error) {
+      console.error("Error initializing dashboard:", error);
+    }
+  });
+
+  // Pagination functions
+  function updatePagination() {
+    const totalRecords = currentFilteredData.length;
+    totalPages = Math.ceil(totalRecords / rowsPerPage);
+    
+    // Ensure current page is valid
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    
+    // Update pagination info
+    const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+    const endRecord = Math.min(currentPage * rowsPerPage, totalRecords);
+    
+    document.getElementById('pagination-info-text').textContent = 
+      `Showing ${startRecord} to ${endRecord} of ${totalRecords} results`;
+    
+    // Update filtered leads count in summary
+    document.getElementById('filtered-leads-count').textContent = totalRecords;
+    
+    // Calculate total jobs for filtered data
+    const totalFilteredJobs = currentFilteredData.reduce((sum, lead) => 
+      sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
+    
+    const jobsCountElement = document.getElementById('filtered-jobs-count');
+    if (jobsCountElement) {
+      jobsCountElement.textContent = totalFilteredJobs;
+    }
+    
+    // Update button states
+    document.getElementById('first-page-btn').disabled = currentPage === 1;
+    document.getElementById('prev-page-btn').disabled = currentPage === 1;
+    document.getElementById('next-page-btn').disabled = currentPage === totalPages || totalPages === 0;
+    document.getElementById('last-page-btn').disabled = currentPage === totalPages || totalPages === 0;
+    
+    // Update goto page input max
+    document.getElementById('goto-page-input').max = totalPages;
+    
+    // Generate page numbers
+    generatePageNumbers();
+  }
+
+  function generatePageNumbers() {
+    const pageNumbersContainer = document.getElementById('page-numbers');
+    pageNumbersContainer.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+    
+    // Calculate which page numbers to show
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+    
+    // Adjust if we're near the beginning or end
+    if (currentPage <= 3) {
+      endPage = Math.min(5, totalPages);
+    }
+    if (currentPage >= totalPages - 2) {
+      startPage = Math.max(1, totalPages - 4);
+    }
+    
+    // Add first page and ellipsis if needed
+    if (startPage > 1) {
+      addPageButton(1);
+      if (startPage > 2) {
+        addEllipsis();
+      }
+    }
+    
+    // Add page numbers
+    for (let i = startPage; i <= endPage; i++) {
+      addPageButton(i);
+    }
+    
+    // Add ellipsis and last page if needed
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        addEllipsis();
+      }
+      addPageButton(totalPages);
+    }
+  }
+
+  function addPageButton(pageNum) {
+    const button = document.createElement('button');
+    button.className = `pagination-btn ${pageNum === currentPage ? 'active' : ''}`;
+    button.textContent = pageNum;
+    button.onclick = () => goToPage(pageNum);
+    document.getElementById('page-numbers').appendChild(button);
+  }
+
+  function addEllipsis() {
+    const span = document.createElement('span');
+    span.className = 'px-2 text-gray-500';
+    span.textContent = '...';
+    document.getElementById('page-numbers').appendChild(span);
+  }
+
+  function goToPage(page) {
+    if (page < 1 || page > totalPages) return;
+    
+    currentPage = page;
+    updatePagination();
+    displayCurrentPage();
+  }
+
+  function changeRowsPerPage() {
+    const newRowsPerPage = parseInt(document.getElementById('rows-per-page').value);
+    
+    // Calculate what the current page should be with the new page size
+    const currentStartRecord = (currentPage - 1) * rowsPerPage + 1;
+    const newPage = Math.ceil(currentStartRecord / newRowsPerPage);
+    
+    rowsPerPage = newRowsPerPage;
+    currentPage = newPage;
+    
+    updatePagination();
+    displayCurrentPage();
+  }
+
+  function goToPageFromInput() {
+    const input = document.getElementById('goto-page-input');
+    const page = parseInt(input.value);
+    
+    if (page && page >= 1 && page <= totalPages) {
+      goToPage(page);
+      input.value = '';
+    } else {
+      alert(`Please enter a page number between 1 and ${totalPages}`);
+      input.value = '';
+    }
+  }
+
+  function handleGoToPageKeypress(event) {
+    if (event.key === 'Enter') {
+      goToPageFromInput();
+    }
+  }
+
+  function displayCurrentPage() {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    currentDisplayedData = currentFilteredData.slice(startIndex, endIndex);
+    
+    updateTableWithSortedData(currentDisplayedData, false); // false means don't slice again
+    initializeDetailCardHover(); // Reinitialize hover events for new rows
+  }
     
     // Function to switch between tabs
     function switchTabView(tab) {
@@ -788,7 +1159,6 @@
         if (tab === 'dashboard') {
           setTimeout(() => {
             console.log("Refreshing charts after tab switch");
-            // Use Chart.js's proper resize method by updating the chart
             if (window.timeframeChart) window.timeframeChart.update();
             if (window.activityChart) window.activityChart.update();
             if (window.stateChart) window.stateChart.update();
@@ -801,52 +1171,157 @@
         console.error("Error in switchTabView function:", error);
       }
     }
-    
-    // Dashboard data and chart functionality
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log("DOM content loaded - initializing dashboard");
+
+    // Function to sort the table by column
+    function sortTable(columnName) {
+      console.log(`Sorting by column: ${columnName}`);
       
-      try {
-        // Create dashboard charts
-        console.log("Creating charts...");
-        createTimeframeChart();
-        createActivityTypeChart();
-        createModernStateChart();
-        createSiteTypeChart();
+      // Determine sort direction
+      if (currentSortColumn === columnName) {
+        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSortDirection = 'asc';
+        if (currentSortColumn) {
+          resetSortIcon(currentSortColumn);
+        }
+      }
+      
+      currentSortColumn = columnName;
+      updateSortIcons(columnName, currentSortDirection);
+      
+      // Sort the filtered data
+      currentFilteredData = sortDataByColumn(currentFilteredData, columnName, currentSortDirection);
+      
+      // Reset to first page after sorting
+      currentPage = 1;
+      updatePagination();
+      displayCurrentPage();
+    }
+
+    // Function to sort data by column
+    function sortDataByColumn(data, columnName, direction) {
+      return [...data].sort((a, b) => {
+        let aValue, bValue;
         
-        // Initialize the map for the dashboard
-        console.log("Initializing map...");
-        initializeMap();
-        
-        // Add event listener for reset filters button
-        const resetButton = document.getElementById('reset-filters');
-        if (resetButton) {
-          resetButton.addEventListener('click', resetFilters);
-          console.log("Reset filters button event listener added");
-        } else {
-          console.error("Reset filters button not found");
+        // Get values based on column
+        switch (columnName) {
+          case 'Company':
+            aValue = (a.Company || '').toLowerCase();
+            bValue = (b.Company || '').toLowerCase();
+            break;
+          case 'Site Type':
+            aValue = (a['Site Type'] || '').toLowerCase();
+            bValue = (b['Site Type'] || '').toLowerCase();
+            break;
+          case 'Address':
+            aValue = (a.Address || '').toLowerCase();
+            bValue = (b.Address || '').toLowerCase();
+            break;
+          case 'Activity Type':
+            aValue = (a['Activity Type'] || '').toLowerCase();
+            bValue = (b['Activity Type'] || '').toLowerCase();
+            break;
+          case 'Timeframe':
+            aValue = (a['Timeframe'] || '').toLowerCase();
+            bValue = (b['Timeframe'] || '').toLowerCase();
+            break;
+          case 'Estimated New Jobs':
+            aValue = parseInt(a['Estimated New Jobs']) || 0;
+            bValue = parseInt(b['Estimated New Jobs']) || 0;
+            break;
+          case 'distance':
+            aValue = parseFloat(a.distance) || 0;
+            bValue = parseFloat(b.distance) || 0;
+            break;
+          default:
+            aValue = '';
+            bValue = '';
         }
         
-        // Initialize filter values from URL or previous state if available
-        initializeFiltersFromURL();
-        
-        // Initialize detail card hover functionality
-        initializeDetailCardHover();
-        
-        console.log("Dashboard initialization complete");
-      } catch (error) {
-        console.error("Error initializing dashboard:", error);
+        // Compare values
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return direction === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+          if (direction === 'asc') {
+            return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+          } else {
+            return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+          }
+        }
+      });
+    }
+
+    // Function to update sort icons
+    function updateSortIcons(columnName, direction) {
+      // Reset all icons first
+      document.querySelectorAll('.sort-icon').forEach(icon => {
+        icon.classList.remove('active');
+        icon.querySelector('i').className = 'fas fa-sort';
+      });
+      
+      // Update the active column icon
+      const activeIcon = document.getElementById(`sort-icon-${columnName}`);
+      if (activeIcon) {
+        activeIcon.classList.add('active');
+        const iconElement = activeIcon.querySelector('i');
+        if (direction === 'asc') {
+          iconElement.className = 'fas fa-sort-up';
+        } else {
+          iconElement.className = 'fas fa-sort-down';
+        }
       }
-    });
+    }
+
+    // Function to reset sort icon
+    function resetSortIcon(columnName) {
+      const icon = document.getElementById(`sort-icon-${columnName}`);
+      if (icon) {
+        icon.classList.remove('active');
+        icon.querySelector('i').className = 'fas fa-sort';
+      }
+    }
+
+    // Function to update table with sorted data
+    function updateTableWithSortedData(dataToDisplay, shouldSlice = true) {
+      const tableBody = document.getElementById('leads-table-body');
+      if (!tableBody) return;
+      
+      // Clear existing rows
+      tableBody.innerHTML = '';
+      
+      // Use provided data or slice if needed
+      const limitedData = shouldSlice ? dataToDisplay.slice(0, rowsPerPage) : dataToDisplay;
+      
+      limitedData.forEach((lead, index) => {
+        const row = document.createElement('tr');
+        row.className = 'lead-row';
+        row.setAttribute('data-index', index);
+        
+        // Check if city search is active
+        const hasCitySearch = <%= locals.citySearchCoordinates ? 'true' : 'false' %>;
+        
+        // Create row HTML
+        row.innerHTML = `
+          <td class="px-6 py-4 font-bold company-column wrap-text table-text-smaller">${lead.Company || 'N/A'}</td>
+          <td class="px-6 py-4 site-type-column wrap-text table-text-smaller">${lead['Site Type'] || 'N/A'}</td>
+          <td class="px-6 py-4 address-column address-with-breaks table-text-smaller">${(lead.Address || 'N/A').replace(/,\s*([^,]*?)$/g, '<br>$1')}</td>
+          <td class="px-6 py-4 activity-column table-text-smaller">${lead['Activity Type'] || 'N/A'}</td>
+          <td class="px-6 py-4 timeframe-column table-text-smaller">${lead['Timeframe'] || 'N/A'}</td>
+          <td class="px-6 py-4 jobs-column table-text-smaller">${lead['Estimated New Jobs'] || 'N/A'}</td>
+          ${hasCitySearch ? `<td class="px-6 py-4 distance-column table-text-smaller">${lead.distance ? lead.distance + ' mi' : 'N/A'}</td>` : ''}
+        `;
+        
+        tableBody.appendChild(row);
+      });
+      
+      console.log(`Table updated with ${limitedData.length} rows on page ${currentPage}`);
+    }
     
 // Initialize the detail card hover functionality
 function initializeDetailCardHover() {
   // Get all lead rows in the table
   const leadRows = document.querySelectorAll('.lead-row');
   const detailCard = document.getElementById('detail-card');
-  
-  // Store the lead data for quick access
-  const leadsData = <%- JSON.stringify(leads.slice(0, 50)) %>;
   
   // Track mouse state
   let isOverCard = false;
@@ -893,7 +1368,7 @@ function initializeDetailCardHover() {
       row.classList.add('highlight-row');
       
       // Get lead data and populate the card
-      const lead = leadsData[index];
+      const lead = currentDisplayedData[index];
       if (lead) {
         populateDetailCard(lead);
         
@@ -1029,6 +1504,11 @@ function formatMultiValue(value) {
     function initializeFiltersFromURL() {
       const urlParams = new URLSearchParams(window.location.search);
       
+      // Check if we should switch to site-details tab
+      if (urlParams.get('tab') === 'site-details') {
+        switchTabView('site-details');
+      }
+      
       // Set state filter if in URL
       if (urlParams.has('state') && urlParams.get('state') !== 'All States') {
         filterState.state = urlParams.get('state');
@@ -1058,11 +1538,13 @@ function formatMultiValue(value) {
       filterState.state = state;
       
       if (state !== 'All States') {
-        // Redirect to server-side filtering for state
-        window.location.href = `/filter?state=${encodeURIComponent(state)}`;
+        // Redirect to server-side filtering for state, but preserve current tab
+        const currentTabParam = currentTab === 'site-details' ? '&tab=site-details' : '';
+        window.location.href = `/filter?state=${encodeURIComponent(state)}${currentTabParam}`;
       } else {
-        // Reset state filter on the server
-        window.location.href = '/';
+        // Reset state filter on the server, but preserve current tab
+        const currentTabParam = currentTab === 'site-details' ? '?tab=site-details' : '';
+        window.location.href = `/${currentTabParam}`;
       }
     }
     
@@ -1071,8 +1553,9 @@ function formatMultiValue(value) {
       const radius = document.getElementById('radius-select').value;
       
       if (city) {
-        // Redirect to server-side filtering for city
-        window.location.href = `/city-search?city=${encodeURIComponent(city)}&radius=${encodeURIComponent(radius)}`;
+        // Redirect to server-side filtering for city, but preserve current tab
+        const currentTabParam = currentTab === 'site-details' ? '&tab=site-details' : '';
+        window.location.href = `/city-search?city=${encodeURIComponent(city)}&radius=${encodeURIComponent(radius)}${currentTabParam}`;
       }
     }
     
@@ -1080,8 +1563,9 @@ function formatMultiValue(value) {
       const company = document.getElementById('company-input').value.trim();
       
       if (company) {
-        // Redirect to server-side filtering for company
-        window.location.href = `/search?company=${encodeURIComponent(company)}`;
+        // Redirect to server-side filtering for company, but preserve current tab
+        const currentTabParam = currentTab === 'site-details' ? '&tab=site-details' : '';
+        window.location.href = `/search?company=${encodeURIComponent(company)}${currentTabParam}`;
       }
     }
     
@@ -1109,6 +1593,21 @@ function formatMultiValue(value) {
       filterState.timeframe = 'All Timeframes';
       filterState.company = '';
       
+      // Reset sort state
+      currentSortColumn = null;
+      currentSortDirection = 'asc';
+      
+      // Reset pagination state
+      currentPage = 1;
+      rowsPerPage = 25;
+      document.getElementById('rows-per-page').value = '25';
+      
+      // Reset all sort icons
+      document.querySelectorAll('.sort-icon').forEach(icon => {
+        icon.classList.remove('active');
+        icon.querySelector('i').className = 'fas fa-sort';
+      });
+      
       // Reset dropdown values
       document.getElementById('unified-state-select').value = 'All States';
       document.getElementById('city-input').value = '';
@@ -1117,23 +1616,28 @@ function formatMultiValue(value) {
       document.getElementById('unified-timeframe-select').value = 'All Timeframes';
       document.getElementById('company-input').value = '';
       
-      // Redirect to home page to reset server-side filters
-      window.location.href = '/';
+      // Redirect to home page to reset server-side filters, but preserve current tab
+      const currentTabParam = currentTab === 'site-details' ? '?tab=site-details' : '';
+      window.location.href = `/${currentTabParam}`;
     }
     
     // Apply client-side filters (for activity and timeframe)
     function applyFilters() {
       // Filter the data
-      const filteredData = filterData();
+      currentFilteredData = filterData();
+      
+      // Reset to first page when applying filters
+      currentPage = 1;
       
       // Update stats cards
-      updateStatsCards(filteredData);
+      updateStatsCards(currentFilteredData);
       
       // Update charts
-      updateCharts(filteredData);
+      updateCharts(currentFilteredData);
       
-      // Update leads table
-      updateLeadsTable(filteredData);
+      // Update pagination and display
+      updatePagination();
+      displayCurrentPage();
     }
     
     // Filter data based on current filter state
@@ -1182,49 +1686,6 @@ function formatMultiValue(value) {
       // Note: Heatmap would need more complex updating which is not included here
     }
     
-    // Update the leads table with filtered data
-    function updateLeadsTable(filteredData) {
-      const tableBody = document.getElementById('leads-table-body');
-      if (!tableBody) return;
-      
-      // Clear existing rows
-      tableBody.innerHTML = '';
-      
-      // Add filtered rows (limit to 50)
-      filteredData.slice(0, 50).forEach((lead, index) => {
-        const row = document.createElement('tr');
-        row.className = 'lead-row';
-        row.setAttribute('data-index', index);
-        
-      // Add event listeners for the new row
-       row.addEventListener('mouseover', function(e) {
-        row.classList.add('highlight-row');
-        populateDetailCard(lead);
-        document.getElementById('detail-card').classList.add('detail-card-visible');
-      });
-
-      row.addEventListener('mouseout', function() {
-      row.classList.remove('highlight-row');
-       document.getElementById('detail-card').classList.remove('detail-card-visible');
-      });
-        
-        // Add all cells
-        const hasCitySearch = <%= locals.citySearchCoordinates ? 'true' : 'false' %>;
-        
-        row.innerHTML = `
-          <td class="px-6 py-4 font-bold company-column wrap-text table-text-smaller">${lead.Company || 'N/A'}</td>
-          <td class="px-6 py-4 site-type-column wrap-text table-text-smaller">${lead['Site Type'] || 'N/A'}</td>
-          <td class="px-6 py-4 address-column address-with-breaks table-text-smaller">${(lead.Address || 'N/A').replace(/,\s*/g, ',\n')}</td>
-          <td class="px-6 py-4 activity-column table-text-smaller">${lead['Activity Type'] || 'N/A'}</td>
-          <td class="px-6 py-4 timeframe-column table-text-smaller">${lead['Timeframe'] || 'N/A'}</td>
-          <td class="px-6 py-4 jobs-column table-text-smaller">${lead['Estimated New Jobs'] || 'N/A'}</td>
-          ${hasCitySearch ? `<td class="px-6 py-4 distance-column table-text-smaller">${lead.distance ? lead.distance + ' mi' : 'N/A'}</td>` : ''}
-        `;
-        
-        tableBody.appendChild(row);
-      });
-    }
-    
     // Create the timeframe distribution chart
     function createTimeframeChart() {
       try {
@@ -1246,18 +1707,9 @@ function formatMultiValue(value) {
         const timeframeData = [];
         
         <% 
-        // Sort timeframes for better visualization
+        // Sort timeframes alphabetically
         const sortedTimeframes = Object.keys(timeframeCounts).sort((a, b) => {
-          // Custom sorting function for timeframes
-          const timeOrder = {
-            'Immediate': 1,
-            '0-6 Months': 2,
-            '6-12 Months': 3,
-            '12-24 Months': 4,
-            '24+ Months': 5,
-            'Unknown': 6
-          };
-          return (timeOrder[a] || 999) - (timeOrder[b] || 999);
+          return a.localeCompare(b);
         });
         %>
         
@@ -1311,7 +1763,7 @@ function formatMultiValue(value) {
                   callbacks: {
                     label: function(context) {
                       const value = context.raw;
-                      const total = timeframeData.reduce((a, b) => a + b, l0);
+                      const total = timeframeData.reduce((a, b) => a + b, 0);
                       const percentage = ((value / total) * 100).toFixed(1);
                       return `Leads: ${value} (${percentage}%)`;
                     }
@@ -1479,73 +1931,99 @@ function formatMultiValue(value) {
       }
     }
     
-    // Create the modern state distribution chart
+    // Create the modern city distribution chart
     function createModernStateChart() {
       try {
-        console.log("Creating state distribution chart");
-        
-        // Get state count data
-        const stateData = {};
+        console.log("Creating city distribution chart");
         
         <% 
-        // Calculate state counts
-        const stateCounts = {};
-        states.forEach(state => { stateCounts[state] = 0; });
-        
-        leads.forEach(lead => {
-          if (lead.Address) {
-            states.forEach(state => {
-              if (lead.Address.toLowerCase().includes(state.toLowerCase())) {
-                stateCounts[state] = (stateCounts[state] || 0) + 1;
+        // Use server-side city data if available, otherwise fallback to client-side extraction
+        let cityCountsData = {};
+        if (typeof cityCounts !== 'undefined' && cityCounts) {
+          cityCountsData = cityCounts;
+        } else {
+          // Fallback: Calculate city counts on client-side
+          leads.forEach(lead => {
+            if (lead.Address) {
+              const addressParts = lead.Address.split(',').map(part => part.trim());
+              
+              if (addressParts.length >= 2) {
+                let cityName = '';
+                
+                if (addressParts.length >= 3) {
+                  cityName = addressParts[1];
+                } else if (addressParts.length === 2) {
+                  cityName = addressParts[0];
+                }
+                
+                cityName = cityName.replace(/^\d+\s+/, '')
+                                  .replace(/\s+/g, ' ')
+                                  .trim();
+                
+                if (cityName.length > 2 && 
+                    !cityName.match(/^\d+$/) && 
+                    !cityName.toLowerCase().includes('street') &&
+                    !cityName.toLowerCase().includes('avenue') &&
+                    !cityName.toLowerCase().includes('road') &&
+                    !cityName.toLowerCase().includes('blvd') &&
+                    !cityName.toLowerCase().includes('suite') &&
+                    cityName !== 'N/A') {
+                  
+                  cityName = cityName.split(' ')
+                                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                    .join(' ');
+                  
+                  cityCountsData[cityName] = (cityCountsData[cityName] || 0) + 1;
+                }
               }
-            });
-          }
-        });
+            }
+          });
+        }
         
-        // Sort states by count (descending)
-        const sortedStates = Object.keys(stateCounts)
-          .filter(state => stateCounts[state] > 0)
-          .sort((a, b) => stateCounts[b] - stateCounts[a])
-          .slice(0, 10); // Get top 10 states
+        // Sort cities by count (descending) and get top 10
+        const sortedCities = Object.keys(cityCountsData)
+          .filter(city => cityCountsData[city] > 0)
+          .sort((a, b) => cityCountsData[b] - cityCountsData[a])
+          .slice(0, 10);
         %>
         
         // Prepare data for chart
-        const stateLabels = [<% sortedStates.forEach((state, index) => { %>'<%= state %>'<%= index < sortedStates.length - 1 ? ',' : '' %><% }); %>];
-        const stateCounts = [<% sortedStates.forEach((state, index) => { %><%= stateCounts[state] %><%= index < sortedStates.length - 1 ? ',' : '' %><% }); %>];
+        const cityLabels = [<% sortedCities.forEach((city, index) => { %>'<%= city.replace(/'/g, "\\'") %>'<%= index < sortedCities.length - 1 ? ',' : '' %><% }); %>];
+        const cityCounts = [<% sortedCities.forEach((city, index) => { %><%= cityCountsData[city] %><%= index < sortedCities.length - 1 ? ',' : '' %><% }); %>];
         
-        console.log("State Labels:", stateLabels);
-        console.log("State Counts:", stateCounts);
+        console.log("City Labels:", cityLabels);
+        console.log("City Counts:", cityCounts);
         
         // Get element and check if it exists
-        const stateElement = document.getElementById('stateDistributionChart');
-        if (!stateElement) {
-          console.error("State distribution chart element not found");
+        const cityElement = document.getElementById('stateDistributionChart');
+        if (!cityElement) {
+          console.error("City distribution chart element not found");
           return;
         }
         
-        // Create chart if we have valid state data
-        if (stateLabels.length === 0) {
-          stateElement.parentNode.innerHTML = `
+        // Create chart if we have valid city data
+        if (cityLabels.length === 0) {
+          cityElement.parentNode.innerHTML = `
             <div class="flex flex-col items-center justify-center h-full p-8 text-center">
               <div class="text-5xl text-gray-300 mb-4">
                 <i class="fas fa-chart-bar"></i>
               </div>
-              <h3 class="text-xl font-medium text-gray-700 mb-2">No State Data Available</h3>
+              <h3 class="text-xl font-medium text-gray-700 mb-2">No City Data Available</h3>
               <p class="text-gray-500">
-                No state information was found in the current lead data.
+                No city information could be extracted from the current lead addresses.
               </p>
             </div>
           `;
-          console.warn("No state data available for chart");
+          console.warn("No city data available for chart");
         } else {
-          const ctx = stateElement.getContext('2d');
+          const ctx = cityElement.getContext('2d');
           window.stateChart = new Chart(ctx, {
             type: 'bar',
             data: {
-              labels: stateLabels,
+              labels: cityLabels,
               datasets: [{
                 label: 'Number of Leads',
-                data: stateCounts,
+                data: cityCounts,
                 backgroundColor: '#41C9C7',
                 borderColor: '#2B3A5C',
                 borderWidth: 1
@@ -1588,10 +2066,10 @@ function formatMultiValue(value) {
               }
             }
           });
-          console.log("State distribution chart created successfully");
+          console.log("City distribution chart created successfully");
         }
       } catch (error) {
-        console.error("Error creating state distribution chart:", error);
+        console.error("Error creating city distribution chart:", error);
       }
     }
     
@@ -1695,43 +2173,68 @@ function formatMultiValue(value) {
       }
     }
     
-    // Update state chart with filtered data
+    // Update city chart with filtered data
     function updateStateChart(filteredData) {
       try {
         if (!window.stateChart) {
-          console.warn("State chart not initialized - cannot update");
+          console.warn("City chart not initialized - cannot update");
           return;
         }
         
-        // Calculate new counts for each state
-        const stateCounts = {};
-        const states = <%- JSON.stringify(states) %>;
-        
-        states.forEach(state => { stateCounts[state] = 0; });
+        // Calculate new counts for each city
+        const cityCounts = {};
         
         filteredData.forEach(lead => {
           if (lead.Address) {
-            states.forEach(state => {
-              if (lead.Address.toLowerCase().includes(state.toLowerCase())) {
-                stateCounts[state] = (stateCounts[state] || 0) + 1;
+            // Extract city from address using same logic as chart creation
+            const addressParts = lead.Address.split(',').map(part => part.trim());
+            
+            if (addressParts.length >= 2) {
+              let cityName = '';
+              
+              if (addressParts.length >= 3) {
+                cityName = addressParts[1];
+              } else if (addressParts.length === 2) {
+                cityName = addressParts[0];
               }
-            });
+              
+              // Clean up city name
+              cityName = cityName.replace(/^\d+\s+/, '')
+                                .replace(/\s+/g, ' ')
+                                .trim();
+              
+              if (cityName.length > 2 && 
+                  !cityName.match(/^\d+$/) && 
+                  !cityName.toLowerCase().includes('street') &&
+                  !cityName.toLowerCase().includes('avenue') &&
+                  !cityName.toLowerCase().includes('road') &&
+                  !cityName.toLowerCase().includes('blvd') &&
+                  !cityName.toLowerCase().includes('suite') &&
+                  cityName !== 'N/A') {
+                
+                cityName = cityName.split(' ')
+                                  .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                  .join(' ');
+                
+                cityCounts[cityName] = (cityCounts[cityName] || 0) + 1;
+              }
+            }
           }
         });
         
-        // Get the top 10 states from the chart labels
-        const topStates = window.stateChart.data.labels;
+        // Get the top 10 cities from the chart labels
+        const topCities = window.stateChart.data.labels;
         
         // Update chart data
-        window.stateChart.data.datasets[0].data = topStates.map(
-          state => stateCounts[state] || 0
+        window.stateChart.data.datasets[0].data = topCities.map(
+          city => cityCounts[city] || 0
         );
         
         // Update the chart
         window.stateChart.update();
-        console.log("State distribution chart updated with filtered data");
+        console.log("City distribution chart updated with filtered data");
       } catch (error) {
-        console.error("Error updating state chart:", error);
+        console.error("Error updating city chart:", error);
       }
     }
     
