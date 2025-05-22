@@ -380,8 +380,193 @@
   color: #41C9C7;
 }
 
-.sort-icon i {
-  font-size: 10px;
+/* Welcome Modal styles */
+.welcome-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.welcome-modal.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.welcome-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideIn 0.4s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.welcome-header {
+  background: linear-gradient(135deg, #2B3A5C 0%, #141824 100%);
+  color: white;
+  padding: 2rem;
+  border-radius: 12px 12px 0 0;
+  text-align: center;
+  border-bottom: 3px solid #41C9C7;
+}
+
+.welcome-logo {
+  height: 80px;
+  width: auto;
+  filter: brightness(1.1) contrast(1.1);
+  transition: transform 0.3s ease;
+}
+
+.welcome-logo:hover {
+  transform: scale(1.05);
+}
+
+.welcome-body {
+  padding: 2rem;
+}
+
+.welcome-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.welcome-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.welcome-section h3 {
+  color: #2B3A5C;
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.welcome-section p {
+  color: #4a5568;
+  line-height: 1.6;
+  margin-bottom: 0.5rem;
+}
+
+.welcome-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.welcome-feature {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #41C9C7;
+}
+
+.welcome-feature h4 {
+  color: #2B3A5C;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.welcome-feature p {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.welcome-footer {
+  background: #f8fafc;
+  padding: 1.5rem 2rem;
+  border-radius: 0 0 12px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #e5e7eb;
+}
+
+.welcome-close-btn {
+  background: #2B3A5C;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s ease;
+}
+
+.welcome-close-btn:hover {
+  background: #1F2D4E;
+}
+
+.welcome-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.welcome-checkbox input {
+  margin: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .welcome-content {
+    width: 95%;
+    margin: 1rem;
+  }
+  
+  .welcome-header {
+    padding: 1.5rem;
+  }
+  
+  .welcome-logo {
+    height: 60px;
+  }
+  
+  .welcome-body {
+    padding: 1.5rem;
+  }
+  
+  .welcome-features {
+    grid-template-columns: 1fr;
+  }
+  
+  .welcome-footer {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
 }
 
 /* Pagination styles */
@@ -498,6 +683,147 @@
   </div>
   
   <div class="container mx-auto px-4 py-8">
+    <!-- Welcome Modal -->
+    <div id="welcome-modal" class="welcome-modal">
+      <div class="welcome-content">
+        <div class="welcome-header">
+          <div class="flex flex-col items-center mb-4">
+            <img src="/images/encodeset-logo.png" alt="EnCodeSet Logo" class="welcome-logo mb-3">
+            <div class="text-center">
+              <div class="text-sm font-medium opacity-80 mb-1">Powered by</div>
+              <div class="text-xl font-bold tracking-wide">ENCODESET</div>
+            </div>
+          </div>
+          <h1 class="text-3xl font-bold mb-2">Location Lead Dashboard</h1>
+          <p class="text-lg opacity-90">Your comprehensive tool for tracking and analyzing location-based business leads</p>
+        </div>
+        
+        <div class="welcome-body">
+          <!-- Overview Section -->
+          <div class="welcome-section">
+            <h3>
+              <i class="fas fa-info-circle text-blue-500"></i>
+              What is this Dashboard?
+            </h3>
+            <p>
+              The Location Lead Dashboard helps you track and analyze business leads across different locations. 
+              It connects to your SmartSuite database to visualize lead data through interactive charts, maps, 
+              and detailed tables with powerful filtering and sorting capabilities.
+            </p>
+          </div>
+
+          <!-- Main Features -->
+          <div class="welcome-section">
+            <h3>
+              <i class="fas fa-star text-yellow-500"></i>
+              Key Features
+            </h3>
+            <div class="welcome-features">
+              <div class="welcome-feature">
+                <h4><i class="fas fa-chart-line mr-2"></i>Interactive Dashboard</h4>
+                <p>View lead distribution through charts showing timeframes, activities, top cities, and site types.</p>
+              </div>
+              <div class="welcome-feature">
+                <h4><i class="fas fa-table mr-2"></i>Sortable Data Table</h4>
+                <p>Browse all leads with sortable columns, pagination, and detailed hover information.</p>
+              </div>
+              <div class="welcome-feature">
+                <h4><i class="fas fa-filter mr-2"></i>Advanced Filtering</h4>
+                <p>Filter by state, city radius, activity type, timeframe, or company name.</p>
+              </div>
+              <div class="welcome-feature">
+                <h4><i class="fas fa-map-marked-alt mr-2"></i>Location Heatmap</h4>
+                <p>Visualize lead concentration across geographic locations with an interactive map.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- How to Use -->
+          <div class="welcome-section">
+            <h3>
+              <i class="fas fa-play-circle text-green-500"></i>
+              How to Use
+            </h3>
+            <div class="space-y-3">
+              <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                <div>
+                  <strong>Choose Your View:</strong> Switch between "Dashboard" (charts & analytics) and "Site Details" (data table) using the tabs at the top.
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
+                <div>
+                  <strong>Apply Filters:</strong> Use the filter bar to narrow down data by location, activity type, timeframe, or company name.
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                <div>
+                  <strong>Interact with Data:</strong> Click column headers to sort, hover over table rows for details, and navigate through pages.
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">4</span>
+                <div>
+                  <strong>Analyze Trends:</strong> Use the dashboard charts to identify patterns in lead distribution and geographic concentration.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Tips -->
+          <div class="welcome-section">
+            <h3>
+              <i class="fas fa-lightbulb text-orange-500"></i>
+              Quick Tips
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div class="flex items-center gap-2">
+                <i class="fas fa-mouse-pointer text-gray-400"></i>
+                <span>Hover over table rows for detailed lead information</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <i class="fas fa-sort text-gray-400"></i>
+                <span>Click any column header to sort the data</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <i class="fas fa-search text-gray-400"></i>
+                <span>Use city search with radius for location-based filtering</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <i class="fas fa-undo text-gray-400"></i>
+                <span>Click "Reset Filters" to clear all applied filters</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <i class="fas fa-list text-gray-400"></i>
+                <span>Change rows per page in the table for better browsing</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <i class="fas fa-map text-gray-400"></i>
+                <span>Explore the heatmap to see lead geographic patterns</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="welcome-footer">
+          <label class="welcome-checkbox">
+            <input type="checkbox" id="dont-show-again">
+            <span>Don't show this again</span>
+          </label>
+          <div class="flex flex-col items-center gap-2">
+            <button class="welcome-close-btn" onclick="closeWelcomeModal()">
+              Get Started
+              <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+            <div class="text-xs text-gray-500">
+              © 2025 EnCodeSet - Custom Dashboard Solutions
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- Unified Filter Section that works for both tabs -->
     <div class="mb-6 bg-white rounded-lg shadow p-4">
       <div class="flex items-center justify-between">
@@ -744,7 +1070,7 @@
         <!-- City Distribution Chart -->
         <div class="chart-card">
           <div class="chart-header">
-            <span>Top 10 Lead Count</span>
+            <span>Top 10 Cities</span>
             <i class="fas fa-map-marked-alt text-gray-400"></i>
           </div>
           <div class="chart-body">
@@ -955,6 +1281,9 @@
   // Initialize pagination on page load
   document.addEventListener('DOMContentLoaded', function() {
     try {
+      // Show welcome modal on first visit
+      showWelcomeModal();
+      
       // Initialize filtered data
       currentFilteredData = <%- JSON.stringify(leads) %>;
       
@@ -983,6 +1312,58 @@
       console.log("Dashboard initialization complete");
     } catch (error) {
       console.error("Error initializing dashboard:", error);
+    }
+  });
+
+  // Welcome Modal Functions
+  function showWelcomeModal() {
+    // Check if user has chosen not to show the modal again
+    const dontShowAgain = localStorage.getItem('welcomeModalDontShow');
+    
+    if (!dontShowAgain) {
+      const modal = document.getElementById('welcome-modal');
+      if (modal) {
+        // Small delay to ensure page is fully loaded
+        setTimeout(() => {
+          modal.classList.add('show');
+        }, 500);
+      }
+    }
+  }
+
+  function closeWelcomeModal() {
+    const modal = document.getElementById('welcome-modal');
+    const dontShowCheckbox = document.getElementById('dont-show-again');
+    
+    // Save user preference if checkbox is checked
+    if (dontShowCheckbox && dontShowCheckbox.checked) {
+      localStorage.setItem('welcomeModalDontShow', 'true');
+    }
+    
+    // Hide modal with animation
+    if (modal) {
+      modal.classList.remove('show');
+    }
+  }
+
+  // Close modal when clicking outside content area
+  document.addEventListener('click', function(event) {
+    const modal = document.getElementById('welcome-modal');
+    const content = document.querySelector('.welcome-content');
+    
+    if (modal && modal.classList.contains('show') && 
+        event.target === modal && !content.contains(event.target)) {
+      closeWelcomeModal();
+    }
+  });
+
+  // Close modal with Escape key
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      const modal = document.getElementById('welcome-modal');
+      if (modal && modal.classList.contains('show')) {
+        closeWelcomeModal();
+      }
     }
   });
 
