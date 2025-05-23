@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Location Lead Dashboard</title>
+  <title>encodeset</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
@@ -647,8 +647,8 @@
       <div class="flex items-center">
         <img src="/images/encodeset-logo.png" alt="EnCodeSet Logo" class="logo">
         <div>
-          <h1 class="text-3xl font-bold">Location Lead Dashboard</h1>
-          <p class="text-gray-300">Track and monitor leads across different states</p>
+          <h1 class="text-3xl font-bold">Industrial Growth Insight Tool</h1>
+          <p class="text-gray-300">Track Every Move, Spot Every Opportunity</p>
         </div>
       </div>
       <div class="flex space-x-4">
@@ -694,8 +694,8 @@
               <div class="text-xl font-bold tracking-wide">ENCODESET</div>
             </div>
           </div>
-          <h1 class="text-3xl font-bold mb-2">Location Lead Dashboard</h1>
-          <p class="text-lg opacity-90">Your comprehensive tool for tracking and analyzing location-based business leads</p>
+          <h1 class="text-3xl font-bold mb-2">Industrial Growth Insight Tool</h1>
+          <p class="text-lg opacity-90">Your comprehensive tool for tracking and analyzing location-based business growth</p>
         </div>
         
         <div class="welcome-body">
@@ -703,11 +703,11 @@
           <div class="welcome-section">
             <h3>
               <i class="fas fa-info-circle text-blue-500"></i>
-              What is this Dashboard?
+              What is this Industrial Growth Insight Tool?
             </h3>
             <p>
-              The Location Lead Dashboard helps you track and analyze business leads across different locations. 
-              Visualize lead data through interactive charts, maps, and detailed tables with powerful filtering and sorting capabilities.
+              This tool helps you track and analyze business growth across different locations. 
+              Visualize data through interactive charts, maps, and detailed tables with powerful filtering and sorting capabilities.
             </p>
           </div>
 
@@ -720,11 +720,11 @@
             <div class="welcome-features">
               <div class="welcome-feature">
                 <h4><i class="fas fa-chart-line mr-2"></i>Interactive Dashboard</h4>
-                <p>View lead distribution through charts showing timeframes, activities, top cities, and site types.</p>
+                <p>View through charts showing timeframes, activities, top cities, and site types.</p>
               </div>
               <div class="welcome-feature">
                 <h4><i class="fas fa-table mr-2"></i>Sortable Data Table</h4>
-                <p>Browse all leads with sortable columns, pagination, and detailed hover information.</p>
+                <p>Browse with sortable columns, pagination, and detailed hover information.</p>
               </div>
               <div class="welcome-feature">
                 <h4><i class="fas fa-filter mr-2"></i>Advanced Filtering</h4>
@@ -980,7 +980,7 @@
         <div class="stat-card p-6">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-lg text-gray-500 font-medium">Total Leads</p>
+              <p class="text-lg text-gray-500 font-medium">Activity Total</p>
               <h3 class="mt-1 text-4xl font-bold text-gray-800" id="total-leads-count"><%= totalLeads %></h3>
               <p class="mt-3 text-sm text-gray-600">All active leads in system</p>
             </div>
@@ -1022,7 +1022,7 @@
         <div class="stat-card p-6">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-lg text-gray-500 font-medium">Avg Jobs/Lead</p>
+              <p class="text-lg text-gray-500 font-medium">Job Creation Est.</p>
               <h3 class="mt-1 text-4xl font-bold text-gray-800" id="avg-jobs-count">
                 <%= Math.round(totalJobs / (totalLeads || 1)) %>
               </h3>
@@ -1040,7 +1040,7 @@
         <!-- Timeframe Distribution Chart -->
         <div class="chart-card">
           <div class="chart-header">
-            <span>Leads by Timeframe</span>
+            <span>Activity Timeline</span>
             <i class="fas fa-calendar-alt text-gray-400"></i>
           </div>
           <div class="chart-body">
@@ -1069,7 +1069,7 @@
         <!-- City Distribution Chart -->
         <div class="chart-card">
           <div class="chart-header">
-            <span>Top 10 Cities</span>
+            <span>Top 10</span>
             <i class="fas fa-map-marked-alt text-gray-400"></i>
           </div>
           <div class="chart-body">
@@ -1096,7 +1096,7 @@
       <!-- Heatmap Section -->
       <div class="chart-card">
         <div class="chart-header">
-          <span>Lead Location Heatmap</span>
+          <span>Activity Heat Map</span>
           <i class="fas fa-globe-americas text-gray-400"></i>
         </div>
         <div class="p-6">
@@ -1119,7 +1119,7 @@
       <!-- Leads Table -->
       <div class="bg-white shadow-md rounded-lg overflow-hidden bg-opacity-90">
         <div class="p-6 border-b border-gray-200">
-          <h2 class="text-2xl font-bold text-gray-800">Leads Table</h2>
+          <h2 class="text-2xl font-bold text-gray-800">Company Activity Details</h2>
           <p class="text-sm text-gray-500 mt-1">Hover over a company to see detailed information. Click column headers to sort.</p>
         </div>
         <div class="overflow-x-auto">
