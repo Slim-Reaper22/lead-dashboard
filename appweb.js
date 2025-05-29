@@ -516,34 +516,151 @@ async function loadSmartSuiteData() {
   }
 })();
 
+// Function to extract and count states from lead addresses
+function calculateStateDistribution(leads) {
+  const stateCounts = {};
+  
+  leads.forEach(lead => {
+    if (lead.Address) {
+      const addressParts = lead.Address.split(',').map(part => part.trim());
+      
+      // Look for state in the address
+      if (addressParts.length >= 2) {
+        let stateFound = false;
+        
+        // Check last part first (might be "State ZIP")
+        const lastPart = addressParts[addressParts.length - 1];
+        const stateMatch = lastPart.match(/^([A-Z]{2})\s+\d{5}/) || lastPart.match(/^([A-Z]{2})$/);
+        
+        if (stateMatch) {
+          const stateAbbr = stateMatch[1];
+          const stateName = stateFullNames[stateAbbr];
+          if (stateName) {
+            stateCounts[stateName] = (stateCounts[stateName] || 0) + 1;
+            stateFound = true;
+          }
+        }
+        
+        // If not found, check second-to-last part
+        if (!stateFound && addressParts.length >= 3) {
+          const secondLastPart = addressParts[addressParts.length - 2];
+          
+          // Check for state abbreviation
+          const abbrevMatch = secondLastPart.match(/^([A-Z]{2})$/);
+          if (abbrevMatch) {
+            const stateAbbr = abbrevMatch[1];
+            const stateName = stateFullNames[stateAbbr];
+            if (stateName) {
+              stateCounts[stateName] = (stateCounts[stateName] || 0) + 1;
+              stateFound = true;
+            }
+          }
+          
+          // Check for full state name
+          if (!stateFound) {
+            for (const [abbr, fullName] of Object.entries(stateFullNames)) {
+              if (secondLastPart.toLowerCase() === fullName.toLowerCase()) {
+                stateCounts[fullName] = (stateCounts[fullName] || 0) + 1;
+                stateFound = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        // Last resort: search entire address for state names
+        if (!stateFound) {
+          const fullAddress = lead.Address.toLowerCase();
+          for (const [abbr, fullName] of Object.entries(stateFullNames)) {
+            if (fullAddress.includes(fullName.toLowerCase()) || 
+                fullAddress.includes(`, ${abbr.toLowerCase()},`) ||
+                fullAddress.includes(`, ${abbr.toLowerCase()} `)) {
+              stateCounts[fullName] = (stateCounts[fullName] || 0) + 1;
+              break;
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  return stateCounts;
+}
+
 // Function to extract and count cities from lead addresses
 function calculateCityDistribution(leads) {
   const cityCounts = {};
   
-  leads.forEach(lead => {
+  // Create a set of all state names (both full names and abbreviations) for exclusion
+  const stateNames = new Set();
+  Object.entries(stateFullNames).forEach(([abbr, fullName]) => {
+    stateNames.add(fullName.toLowerCase());
+    stateNames.add(abbr.toLowerCase());
+  });
+  
+  console.log(`Calculating city distribution for ${leads.length} leads`);
+  
+  leads.forEach((lead, index) => {
     if (lead.Address) {
       // Extract city from address
       const addressParts = lead.Address.split(',').map(part => part.trim());
       
+      console.log(`  Processing address: "${lead.Address}" (${addressParts.length} parts)`);
+      
       if (addressParts.length >= 2) {
         let cityName = '';
         
-        if (addressParts.length >= 3) {
-          // Format: "Street, City, State ZIP" - city is second part
-          cityName = addressParts[1];
-        } else if (addressParts.length === 2) {
-          // Format: "City, State" - city is first part
-          cityName = addressParts[0];
+        // Check if first part is a city by seeing if second part is a state
+        const firstPart = addressParts[0];
+        const secondPart = addressParts[1];
+        
+        // If the second part is a state, then first part is likely the city
+        if (stateNames.has(secondPart.toLowerCase()) || 
+            Object.keys(stateFullNames).some(abbr => secondPart.toUpperCase() === abbr)) {
+          cityName = firstPart;
+          console.log(`    Detected city from first part: "${cityName}"`);
+        } else if (addressParts.length >= 3) {
+          // Otherwise, for longer addresses, city is usually second part
+          cityName = secondPart;
+          console.log(`    Detected city from second part: "${cityName}"`);
+        } else {
+          // For 2-part addresses where second isn't a state, assume first is city
+          cityName = firstPart;
+          console.log(`    Defaulting to first part as city: "${cityName}"`);
         }
+        
+        // Store original for debugging
+        const originalCityName = cityName;
         
         // Clean up city name - remove numbers, extra spaces, and common prefixes
         cityName = cityName.replace(/^\d+\s+/, '') // Remove leading numbers
                           .replace(/\s+/g, ' ')    // Normalize spaces
                           .trim();
         
+        // Remove "County" from city names (e.g., "New Castle County" -> "New Castle")
+        if (cityName.toLowerCase().endsWith(' county')) {
+          cityName = cityName.substring(0, cityName.length - 7).trim();
+          console.log(`    Removed "County": "${originalCityName}" -> "${cityName}"`);
+        }
+        
+        // Skip if this is a state name
+        if (stateNames.has(cityName.toLowerCase())) {
+          console.log(`    Skipping state name: ${cityName}`);
+          return; // Skip this iteration
+        }
+        
+        // Skip if this is "United States" or a country name
+        if (cityName.toLowerCase() === 'united states' || 
+            cityName.toLowerCase() === 'usa' ||
+            cityName.toLowerCase() === 'us') {
+          console.log(`    Skipping country name: ${cityName}`);
+          return;
+        }
+        
         // Filter out very short names, numbers, or common non-city terms
         if (cityName.length > 2 && 
             !cityName.match(/^\d+$/) && 
+            !cityName.match(/^\d{5}$/) && // Skip zip codes
             !cityName.toLowerCase().includes('street') &&
             !cityName.toLowerCase().includes('avenue') &&
             !cityName.toLowerCase().includes('road') &&
@@ -552,6 +669,15 @@ function calculateCityDistribution(leads) {
             !cityName.toLowerCase().includes('drive') &&
             !cityName.toLowerCase().includes('lane') &&
             !cityName.toLowerCase().includes('way') &&
+            !cityName.toLowerCase().includes('highway') &&
+            !cityName.toLowerCase().includes('route') &&
+            !cityName.toLowerCase().includes('plaza') &&
+            !cityName.toLowerCase().includes('court') &&
+            !cityName.toLowerCase().includes('building') &&
+            !cityName.toLowerCase().includes('floor') &&
+            !cityName.toLowerCase().includes('parkway') &&
+            !cityName.toLowerCase().includes('pike') &&
+            !cityName.toLowerCase().includes('turnpike') &&
             cityName !== 'N/A') {
           
           // Capitalize first letter of each word for consistency
@@ -559,11 +685,23 @@ function calculateCityDistribution(leads) {
                             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
                             .join(' ');
           
+          console.log(`    Final city name: "${cityName}"`);
+          
           cityCounts[cityName] = (cityCounts[cityName] || 0) + 1;
+        } else {
+          console.log(`    Filtered out: "${cityName}"`);
         }
       }
     }
   });
+  
+  // Debug: Log final city counts
+  console.log('Final city counts:');
+  Object.entries(cityCounts)
+    .sort(([,a], [,b]) => b - a)
+    .forEach(([city, count]) => {
+      console.log(`  ${city}: ${count}`);
+    });
   
   return cityCounts;
 }
@@ -601,6 +739,9 @@ function calculateDashboardMetrics(leads) {
     }
   });
   
+  // Add State Distribution
+  const stateCounts = calculateStateDistribution(leads);
+  
   // Add City Distribution
   const cityCounts = calculateCityDistribution(leads);
   
@@ -608,6 +749,7 @@ function calculateDashboardMetrics(leads) {
     activityCounts,
     timeframeCounts,
     siteTypeCounts,
+    stateCounts,
     cityCounts
   };
 }
@@ -648,11 +790,13 @@ app.get('/', (req, res) => {
   res.render('dashboard', { 
     leads: leadsData,
     states: states,
+    stateFullNames: stateFullNames, // Add this line
     totalLeads,
     totalJobs,
     totalActivityTypes,
     activityCounts,
     dashboardMetrics,
+    stateCounts: dashboardMetrics.stateCounts,
     cityCounts: dashboardMetrics.cityCounts,
     selectedState: null,
     searchTerm: null,
@@ -673,9 +817,22 @@ app.get('/filter', (req, res) => {
     filteredLeads = leadsData.filter(lead => {
       const address = lead.Address || '';
       
-      // Only check for the full state name in the address
-      return address.toLowerCase().includes(state.toLowerCase());
+      // Check for both full state name and abbreviation in the address
+      const stateAbbr = Object.keys(stateFullNames).find(abbr => stateFullNames[abbr] === state);
+      
+      return address.toLowerCase().includes(state.toLowerCase()) || 
+             (stateAbbr && (address.includes(`, ${stateAbbr} `) || address.includes(`, ${stateAbbr},`) || address.endsWith(`, ${stateAbbr}`)));
     });
+    
+    // Debug: Log some sample addresses to see the format
+    console.log(`Filtering for state: ${state}`);
+    console.log(`Found ${filteredLeads.length} leads in ${state}`);
+    if (filteredLeads.length > 0) {
+      console.log('Sample addresses:');
+      filteredLeads.slice(0, 5).forEach((lead, index) => {
+        console.log(`  ${index + 1}. ${lead.Address}`);
+      });
+    }
   }
   
   // Calculate metrics for filtered leads
@@ -690,17 +847,30 @@ app.get('/filter', (req, res) => {
     activityCounts[type] = filteredLeads.filter(lead => lead['Activity Type'] === type).length;
   });
   
-  // Calculate additional dashboard metrics
+  // Calculate dashboard metrics for FILTERED leads, not all leads
   const dashboardMetrics = calculateDashboardMetrics(filteredLeads);
+  
+  // Debug: Log city counts
+  if (state && state !== 'All States') {
+    console.log('City counts for', state + ':');
+    const sortedCities = Object.entries(dashboardMetrics.cityCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10);
+    sortedCities.forEach(([city, count]) => {
+      console.log(`  ${city}: ${count}`);
+    });
+  }
   
   res.render('dashboard', { 
     leads: filteredLeads,
     states: states,
+    stateFullNames: stateFullNames,
     totalLeads,
     totalJobs,
     totalActivityTypes,
     activityCounts,
     dashboardMetrics,
+    stateCounts: dashboardMetrics.stateCounts,
     cityCounts: dashboardMetrics.cityCounts,
     selectedState: state,
     searchTerm: null,
@@ -743,11 +913,13 @@ app.get('/search', (req, res) => {
   res.render('dashboard', { 
     leads: filteredLeads,
     states: states,
+    stateFullNames: stateFullNames, // Add this line
     totalLeads,
     totalJobs,
     totalActivityTypes,
     activityCounts,
     dashboardMetrics,
+    stateCounts: dashboardMetrics.stateCounts,
     cityCounts: dashboardMetrics.cityCounts,
     selectedState: null,
     searchTerm: company, // Pass the search term to the template
@@ -792,11 +964,13 @@ app.get('/city-search', async (req, res) => {
       return res.render('dashboard', {
         leads: [],
         states: states,
+        stateFullNames: stateFullNames,
         totalLeads: 0,
         totalJobs: 0,
         totalActivityTypes: 0,
         activityCounts: {},
         dashboardMetrics,
+        stateCounts: {},
         cityCounts: {},
         selectedState: null,
         searchTerm: null,
@@ -807,7 +981,7 @@ app.get('/city-search', async (req, res) => {
       });
     }
     
-    // Filter leads within the specified radius
+    // Filter leads within the specified radius - create copies to avoid modifying original data
     const filteredLeads = leadsData.filter(lead => {
       // Skip leads without coordinates
       if (!lead.Latitude || !lead.Longitude || isNaN(lead.Latitude) || isNaN(lead.Longitude)) {
@@ -822,11 +996,21 @@ app.get('/city-search', async (req, res) => {
         lead.Longitude
       );
       
-      // Add distance to the lead object for display
-      lead.distance = distance.toFixed(1);
-      
       // Include if within radius
       return distance <= searchRadius;
+    }).map(lead => {
+      // Create a copy of the lead with distance property
+      const distance = calculateDistance(
+        cityCoordinates.latitude,
+        cityCoordinates.longitude,
+        lead.Latitude,
+        lead.Longitude
+      );
+      
+      return {
+        ...lead,
+        distance: distance.toFixed(1)
+      };
     });
     
     // Sort by distance (closest first)
@@ -853,11 +1037,13 @@ app.get('/city-search', async (req, res) => {
     res.render('dashboard', {
       leads: filteredLeads,
       states: states,
+      stateFullNames: stateFullNames,
       totalLeads,
       totalJobs,
       totalActivityTypes,
       activityCounts,
       dashboardMetrics,
+      stateCounts: dashboardMetrics.stateCounts,
       cityCounts: dashboardMetrics.cityCounts,
       selectedState: null,
       searchTerm: null,

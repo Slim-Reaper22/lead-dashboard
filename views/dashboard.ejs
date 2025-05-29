@@ -1328,10 +1328,16 @@
       
       <!-- Main Charts - Second Row -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- City Distribution Chart -->
+        <!-- State/City Distribution Chart -->
         <div class="chart-card">
           <div class="chart-header">
-            <span>Top 10</span>
+            <span id="state-chart-title">
+              <% if (selectedState && selectedState !== 'All States') { %>
+                Top 10 Cities in <%= selectedState %>
+              <% } else { %>
+                Top 10 States
+              <% } %>
+            </span>
             <i class="fas fa-map-marked-alt text-gray-400"></i>
           </div>
           <div class="chart-body">
@@ -2581,99 +2587,203 @@ function formatMultiValue(value) {
       }
     }
     
-    // Create the modern city distribution chart
+    // Create the modern state/city distribution chart
     function createModernStateChart() {
       try {
-        console.log("Creating city distribution chart");
+        console.log("Creating state/city distribution chart");
         
         <% 
-        // Use server-side city data if available, otherwise fallback to client-side extraction
-        let cityCountsData = {};
-        if (typeof cityCounts !== 'undefined' && cityCounts) {
-          cityCountsData = cityCounts;
+        // Define state mapping within the template
+        const stateFullNames = {
+          'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 
+          'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut', 
+          'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia', 
+          'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 
+          'IA': 'Iowa', 'KS': 'Kansas', 'KY': 'Kentucky', 
+          'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland', 
+          'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 
+          'MS': 'Mississippi', 'MO': 'Missouri', 'MT': 'Montana', 
+          'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 
+          'NJ': 'New Jersey', 'NM': 'New Mexico', 'NY': 'New York', 
+          'NC': 'North Carolina', 'ND': 'North Dakota', 
+          'OH': 'Ohio', 'OK': 'Oklahoma', 'OR': 'Oregon', 
+          'PA': 'Pennsylvania', 'RI': 'Rhode Island', 
+          'SC': 'South Carolina', 'SD': 'South Dakota', 
+          'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 
+          'VT': 'Vermont', 'VA': 'Virginia', 
+          'WA': 'Washington', 'WV': 'West Virginia', 
+          'WI': 'Wisconsin', 'WY': 'Wyoming'
+        };
+        
+        // Determine if we're filtering by state
+        const isStateFiltered = selectedState && selectedState !== 'All States';
+        
+        let locationData = {};
+        let chartTitle = '';
+        
+        if (isStateFiltered) {
+          // When a state is selected, show top cities in that state
+          chartTitle = 'Top 10 Cities in ' + selectedState;
+          
+          // Use server-side city data if available
+          if (typeof cityCounts !== 'undefined' && cityCounts) {
+            locationData = cityCounts;
+          } else {
+            // Fallback: Calculate city counts on client-side
+            leads.forEach(lead => {
+              if (lead.Address) {
+                const addressParts = lead.Address.split(',').map(part => part.trim());
+                
+                if (addressParts.length >= 2) {
+                  let cityName = '';
+                  
+                  if (addressParts.length >= 3) {
+                    cityName = addressParts[1];
+                  } else if (addressParts.length === 2) {
+                    cityName = addressParts[0];
+                  }
+                  
+                  cityName = cityName.replace(/^\d+\s+/, '')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
+                  
+                  if (cityName.length > 2 && 
+                      !cityName.match(/^\d+$/) && 
+                      !cityName.toLowerCase().includes('street') &&
+                      !cityName.toLowerCase().includes('avenue') &&
+                      !cityName.toLowerCase().includes('road') &&
+                      !cityName.toLowerCase().includes('blvd') &&
+                      !cityName.toLowerCase().includes('suite') &&
+                      cityName !== 'N/A') {
+                    
+                    cityName = cityName.split(' ')
+                                      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                      .join(' ');
+                    
+                    locationData[cityName] = (locationData[cityName] || 0) + 1;
+                  }
+                }
+              }
+            });
+          }
         } else {
-          // Fallback: Calculate city counts on client-side
+          // When "All States" is selected, show top states
+          chartTitle = 'Top 10 States';
+          
+          // Extract state from addresses
           leads.forEach(lead => {
             if (lead.Address) {
               const addressParts = lead.Address.split(',').map(part => part.trim());
               
+              // Look for state in the address
               if (addressParts.length >= 2) {
-                let cityName = '';
+                // Usually state is in the second-to-last or last part
+                let stateFound = false;
                 
-                if (addressParts.length >= 3) {
-                  cityName = addressParts[1];
-                } else if (addressParts.length === 2) {
-                  cityName = addressParts[0];
+                // Check last part first (might be "State ZIP")
+                const lastPart = addressParts[addressParts.length - 1];
+                const stateMatch = lastPart.match(/^([A-Z]{2})\s+\d{5}/) || lastPart.match(/^([A-Z]{2})$/);
+                
+                if (stateMatch) {
+                  const stateAbbr = stateMatch[1];
+                  const stateName = stateFullNames[stateAbbr];
+                  if (stateName) {
+                    locationData[stateName] = (locationData[stateName] || 0) + 1;
+                    stateFound = true;
+                  }
                 }
                 
-                cityName = cityName.replace(/^\d+\s+/, '')
-                                  .replace(/\s+/g, ' ')
-                                  .trim();
+                // If not found, check second-to-last part
+                if (!stateFound && addressParts.length >= 3) {
+                  const secondLastPart = addressParts[addressParts.length - 2];
+                  
+                  // Check for state abbreviation
+                  const abbrevMatch = secondLastPart.match(/^([A-Z]{2})$/);
+                  if (abbrevMatch) {
+                    const stateAbbr = abbrevMatch[1];
+                    const stateName = stateFullNames[stateAbbr];
+                    if (stateName) {
+                      locationData[stateName] = (locationData[stateName] || 0) + 1;
+                      stateFound = true;
+                    }
+                  }
+                  
+                  // Check for full state name
+                  if (!stateFound) {
+                    for (const [abbr, fullName] of Object.entries(stateFullNames)) {
+                      if (secondLastPart.toLowerCase() === fullName.toLowerCase()) {
+                        locationData[fullName] = (locationData[fullName] || 0) + 1;
+                        stateFound = true;
+                        break;
+                      }
+                    }
+                  }
+                }
                 
-                if (cityName.length > 2 && 
-                    !cityName.match(/^\d+$/) && 
-                    !cityName.toLowerCase().includes('street') &&
-                    !cityName.toLowerCase().includes('avenue') &&
-                    !cityName.toLowerCase().includes('road') &&
-                    !cityName.toLowerCase().includes('blvd') &&
-                    !cityName.toLowerCase().includes('suite') &&
-                    cityName !== 'N/A') {
-                  
-                  cityName = cityName.split(' ')
-                                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                                    .join(' ');
-                  
-                  cityCountsData[cityName] = (cityCountsData[cityName] || 0) + 1;
+                // Last resort: search entire address for state names
+                if (!stateFound) {
+                  const fullAddress = lead.Address.toLowerCase();
+                  for (const [abbr, fullName] of Object.entries(stateFullNames)) {
+                    if (fullAddress.includes(fullName.toLowerCase()) || 
+                        fullAddress.includes(`, ${abbr.toLowerCase()},`) ||
+                        fullAddress.includes(`, ${abbr.toLowerCase()} `)) {
+                      locationData[fullName] = (locationData[fullName] || 0) + 1;
+                      break;
+                    }
+                  }
                 }
               }
             }
           });
         }
         
-        // Sort cities by count (descending) and get top 10
-        const sortedCities = Object.keys(cityCountsData)
-          .filter(city => cityCountsData[city] > 0)
-          .sort((a, b) => cityCountsData[b] - cityCountsData[a])
+        // Sort locations by count (descending) and get top 10
+        const sortedLocations = Object.keys(locationData)
+          .filter(loc => locationData[loc] > 0)
+          .sort((a, b) => locationData[b] - locationData[a])
           .slice(0, 10);
         %>
         
-        // Prepare data for chart
-        const cityLabels = [<% sortedCities.forEach((city, index) => { %>'<%= city.replace(/'/g, "\\'") %>'<%= index < sortedCities.length - 1 ? ',' : '' %><% }); %>];
-        const cityCounts = [<% sortedCities.forEach((city, index) => { %><%= cityCountsData[city] %><%= index < sortedCities.length - 1 ? ',' : '' %><% }); %>];
+        // Store chart title for use in update function
+        window.currentChartTitle = '<%= chartTitle %>';
         
-        console.log("City Labels:", cityLabels);
-        console.log("City Counts:", cityCounts);
+        // Prepare data for chart
+        const locationLabels = [<% sortedLocations.forEach((loc, index) => { %>'<%= loc.replace(/'/g, "\\'") %>'<%= index < sortedLocations.length - 1 ? ',' : '' %><% }); %>];
+        const locationCounts = [<% sortedLocations.forEach((loc, index) => { %><%= locationData[loc] %><%= index < sortedLocations.length - 1 ? ',' : '' %><% }); %>];
+        
+        console.log("Location Labels:", locationLabels);
+        console.log("Location Counts:", locationCounts);
         
         // Get element and check if it exists
-        const cityElement = document.getElementById('stateDistributionChart');
-        if (!cityElement) {
-          console.error("City distribution chart element not found");
+        const chartElement = document.getElementById('stateDistributionChart');
+        if (!chartElement) {
+          console.error("State/city distribution chart element not found");
           return;
         }
         
-        // Create chart if we have valid city data
-        if (cityLabels.length === 0) {
-          cityElement.parentNode.innerHTML = `
+        // Create chart if we have valid data
+        if (locationLabels.length === 0) {
+          chartElement.parentNode.innerHTML = `
             <div class="flex flex-col items-center justify-center h-full p-8 text-center">
               <div class="text-5xl text-gray-300 mb-4">
                 <i class="fas fa-chart-bar"></i>
               </div>
-              <h3 class="text-xl font-medium text-gray-700 mb-2">No City Data Available</h3>
+              <h3 class="text-xl font-medium text-gray-700 mb-2">No Data Available</h3>
               <p class="text-gray-500">
-                No city information could be extracted from the current lead addresses.
+                No location information could be extracted from the current lead addresses.
               </p>
             </div>
           `;
-          console.warn("No city data available for chart");
+          console.warn("No location data available for chart");
         } else {
-          const ctx = cityElement.getContext('2d');
+          const ctx = chartElement.getContext('2d');
           window.stateChart = new Chart(ctx, {
             type: 'bar',
             data: {
-              labels: cityLabels,
+              labels: locationLabels,
               datasets: [{
                 label: 'Number of Leads',
-                data: cityCounts,
+                data: locationCounts,
                 backgroundColor: '#41C9C7',
                 borderColor: '#2B3A5C',
                 borderWidth: 1
@@ -2716,10 +2826,10 @@ function formatMultiValue(value) {
               }
             }
           });
-          console.log("City distribution chart created successfully");
+          console.log("State/city distribution chart created successfully");
         }
       } catch (error) {
-        console.error("Error creating city distribution chart:", error);
+        console.error("Error creating state/city distribution chart:", error);
       }
     }
     
@@ -2823,68 +2933,157 @@ function formatMultiValue(value) {
       }
     }
     
-    // Update city chart with filtered data
+    // Update state/city chart with filtered data
     function updateStateChart(filteredData) {
       try {
         if (!window.stateChart) {
-          console.warn("City chart not initialized - cannot update");
+          console.warn("State/city chart not initialized - cannot update");
           return;
         }
         
-        // Calculate new counts for each city
-        const cityCounts = {};
+        const isStateFiltered = '<%= selectedState && selectedState !== "All States" ? "true" : "false" %>' === 'true';
+        const locationCounts = {};
         
-        filteredData.forEach(lead => {
-          if (lead.Address) {
-            // Extract city from address using same logic as chart creation
-            const addressParts = lead.Address.split(',').map(part => part.trim());
-            
-            if (addressParts.length >= 2) {
-              let cityName = '';
+        if (isStateFiltered) {
+          // When filtering by state, show cities
+          filteredData.forEach(lead => {
+            if (lead.Address) {
+              // Extract city from address using same logic as chart creation
+              const addressParts = lead.Address.split(',').map(part => part.trim());
               
-              if (addressParts.length >= 3) {
-                cityName = addressParts[1];
-              } else if (addressParts.length === 2) {
-                cityName = addressParts[0];
-              }
-              
-              // Clean up city name
-              cityName = cityName.replace(/^\d+\s+/, '')
-                                .replace(/\s+/g, ' ')
-                                .trim();
-              
-              if (cityName.length > 2 && 
-                  !cityName.match(/^\d+$/) && 
-                  !cityName.toLowerCase().includes('street') &&
-                  !cityName.toLowerCase().includes('avenue') &&
-                  !cityName.toLowerCase().includes('road') &&
-                  !cityName.toLowerCase().includes('blvd') &&
-                  !cityName.toLowerCase().includes('suite') &&
-                  cityName !== 'N/A') {
+              if (addressParts.length >= 2) {
+                let cityName = '';
                 
-                cityName = cityName.split(' ')
-                                  .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                                  .join(' ');
+                if (addressParts.length >= 3) {
+                  cityName = addressParts[1];
+                } else if (addressParts.length === 2) {
+                  cityName = addressParts[0];
+                }
                 
-                cityCounts[cityName] = (cityCounts[cityName] || 0) + 1;
+                // Clean up city name
+                cityName = cityName.replace(/^\d+\s+/, '')
+                                  .replace(/\s+/g, ' ')
+                                  .trim();
+                
+                if (cityName.length > 2 && 
+                    !cityName.match(/^\d+$/) && 
+                    !cityName.toLowerCase().includes('street') &&
+                    !cityName.toLowerCase().includes('avenue') &&
+                    !cityName.toLowerCase().includes('road') &&
+                    !cityName.toLowerCase().includes('blvd') &&
+                    !cityName.toLowerCase().includes('suite') &&
+                    cityName !== 'N/A') {
+                  
+                  cityName = cityName.split(' ')
+                                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                    .join(' ');
+                  
+                  locationCounts[cityName] = (locationCounts[cityName] || 0) + 1;
+                }
               }
             }
-          }
-        });
+          });
+        } else {
+          // When showing all states, count by state
+          const stateFullNamesLocal = {
+            'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 
+            'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut', 
+            'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia', 
+            'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 
+            'IA': 'Iowa', 'KS': 'Kansas', 'KY': 'Kentucky', 
+            'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland', 
+            'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 
+            'MS': 'Mississippi', 'MO': 'Missouri', 'MT': 'Montana', 
+            'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 
+            'NJ': 'New Jersey', 'NM': 'New Mexico', 'NY': 'New York', 
+            'NC': 'North Carolina', 'ND': 'North Dakota', 
+            'OH': 'Ohio', 'OK': 'Oklahoma', 'OR': 'Oregon', 
+            'PA': 'Pennsylvania', 'RI': 'Rhode Island', 
+            'SC': 'South Carolina', 'SD': 'South Dakota', 
+            'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 
+            'VT': 'Vermont', 'VA': 'Virginia', 
+            'WA': 'Washington', 'WV': 'West Virginia', 
+            'WI': 'Wisconsin', 'WY': 'Wyoming'
+          };
+          
+          filteredData.forEach(lead => {
+            if (lead.Address) {
+              const addressParts = lead.Address.split(',').map(part => part.trim());
+              
+              // Look for state in the address
+              if (addressParts.length >= 2) {
+                let stateFound = false;
+                
+                // Check last part first (might be "State ZIP")
+                const lastPart = addressParts[addressParts.length - 1];
+                const stateMatch = lastPart.match(/^([A-Z]{2})\s+\d{5}/) || lastPart.match(/^([A-Z]{2})$/);
+                
+                if (stateMatch) {
+                  const stateAbbr = stateMatch[1];
+                  const stateName = stateFullNamesLocal[stateAbbr];
+                  if (stateName) {
+                    locationCounts[stateName] = (locationCounts[stateName] || 0) + 1;
+                    stateFound = true;
+                  }
+                }
+                
+                // If not found, check second-to-last part
+                if (!stateFound && addressParts.length >= 3) {
+                  const secondLastPart = addressParts[addressParts.length - 2];
+                  
+                  // Check for state abbreviation
+                  const abbrevMatch = secondLastPart.match(/^([A-Z]{2})$/);
+                  if (abbrevMatch) {
+                    const stateAbbr = abbrevMatch[1];
+                    const stateName = stateFullNamesLocal[stateAbbr];
+                    if (stateName) {
+                      locationCounts[stateName] = (locationCounts[stateName] || 0) + 1;
+                      stateFound = true;
+                    }
+                  }
+                  
+                  // Check for full state name
+                  if (!stateFound) {
+                    for (const [abbr, fullName] of Object.entries(stateFullNamesLocal)) {
+                      if (secondLastPart.toLowerCase() === fullName.toLowerCase()) {
+                        locationCounts[fullName] = (locationCounts[fullName] || 0) + 1;
+                        stateFound = true;
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                // Last resort: search entire address for state names
+                if (!stateFound) {
+                  const fullAddress = lead.Address.toLowerCase();
+                  for (const [abbr, fullName] of Object.entries(stateFullNamesLocal)) {
+                    if (fullAddress.includes(fullName.toLowerCase()) || 
+                        fullAddress.includes(`, ${abbr.toLowerCase()},`) ||
+                        fullAddress.includes(`, ${abbr.toLowerCase()} `)) {
+                      locationCounts[fullName] = (locationCounts[fullName] || 0) + 1;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          });
+        }
         
-        // Get the top 10 cities from the chart labels
-        const topCities = window.stateChart.data.labels;
+        // Get the top 10 locations from the current chart labels
+        const topLocations = window.stateChart.data.labels;
         
         // Update chart data
-        window.stateChart.data.datasets[0].data = topCities.map(
-          city => cityCounts[city] || 0
+        window.stateChart.data.datasets[0].data = topLocations.map(
+          location => locationCounts[location] || 0
         );
         
         // Update the chart
         window.stateChart.update();
-        console.log("City distribution chart updated with filtered data");
+        console.log("State/city distribution chart updated with filtered data");
       } catch (error) {
-        console.error("Error updating city chart:", error);
+        console.error("Error updating state/city chart:", error);
       }
     }
     
