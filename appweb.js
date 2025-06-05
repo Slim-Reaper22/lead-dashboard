@@ -39,7 +39,7 @@ const stateFullNames = {
 // Geocoding cache and utilities for city search
 const geocodingCache = {}; // Simple cache to avoid repeated API calls
 
-// Enhanced geocoding function with better error handling and fallbacks
+// Enhanced universal geocoding function that can handle any city
 async function geocodeCity(cityName) {
   // Check cache first
   if (geocodingCache[cityName]) {
@@ -53,36 +53,40 @@ async function geocodeCity(cityName) {
     // Add delay to respect rate limits
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Try multiple geocoding services
-    const geocodingServices = [
-      // Primary: OpenStreetMap Nominatim
+    // Try multiple geocoding services and query formats
+    const geocodingAttempts = [
+      // Attempt 1: Direct city name
       {
-        name: 'Nominatim',
+        name: 'Nominatim-Direct',
         url: 'https://nominatim.openstreetmap.org/search',
         params: {
           q: cityName,
           format: 'json',
           limit: 1,
           addressdetails: 1,
-          countrycodes: 'us' // Limit to US for better results
+          countrycodes: 'us'
         },
         headers: {
           'User-Agent': 'LocationLeadDashboard/1.0 (contact@encodeset.com)'
-        },
-        parseResponse: (data) => {
-          if (data && data.length > 0) {
-            return {
-              latitude: parseFloat(data[0].lat),
-              longitude: parseFloat(data[0].lon),
-              displayName: data[0].display_name
-            };
-          }
-          return null;
         }
       },
-      // Fallback: Try with different query format
+      // Attempt 2: City + USA
       {
-        name: 'Nominatim-Formatted',
+        name: 'Nominatim-USA',
+        url: 'https://nominatim.openstreetmap.org/search',
+        params: {
+          q: `${cityName}, USA`,
+          format: 'json',
+          limit: 1,
+          addressdetails: 1
+        },
+        headers: {
+          'User-Agent': 'LocationLeadDashboard/1.0 (contact@encodeset.com)'
+        }
+      },
+      // Attempt 3: City + United States
+      {
+        name: 'Nominatim-UnitedStates',
         url: 'https://nominatim.openstreetmap.org/search',
         params: {
           q: `${cityName}, United States`,
@@ -92,61 +96,142 @@ async function geocodeCity(cityName) {
         },
         headers: {
           'User-Agent': 'LocationLeadDashboard/1.0 (contact@encodeset.com)'
+        }
+      },
+      // Attempt 4: Try as a place with type=city
+      {
+        name: 'Nominatim-PlaceCity',
+        url: 'https://nominatim.openstreetmap.org/search',
+        params: {
+          q: cityName,
+          format: 'json',
+          limit: 1,
+          type: 'city',
+          countrycodes: 'us',
+          addressdetails: 1
         },
-        parseResponse: (data) => {
-          if (data && data.length > 0) {
-            return {
-              latitude: parseFloat(data[0].lat),
-              longitude: parseFloat(data[0].lon),
-              displayName: data[0].display_name
-            };
-          }
-          return null;
+        headers: {
+          'User-Agent': 'LocationLeadDashboard/1.0 (contact@encodeset.com)'
+        }
+      },
+      // Attempt 5: Try with place type administrative
+      {
+        name: 'Nominatim-Administrative',
+        url: 'https://nominatim.openstreetmap.org/search',
+        params: {
+          q: cityName,
+          format: 'json',
+          limit: 3, // Get more results for administrative search
+          'class': 'place',
+          type: 'administrative',
+          countrycodes: 'us',
+          addressdetails: 1
+        },
+        headers: {
+          'User-Agent': 'LocationLeadDashboard/1.0 (contact@encodeset.com)'
         }
       }
     ];
     
-    // Try each service
-    for (const service of geocodingServices) {
+    // Try each geocoding attempt
+    for (const attempt of geocodingAttempts) {
       try {
-        console.log(`Trying ${service.name} for: ${cityName}`);
+        console.log(`Trying ${attempt.name} for: ${cityName}`);
         
-        const response = await axios.get(service.url, {
-          params: service.params,
-          headers: service.headers,
-          timeout: 10000 // 10 second timeout
+        const response = await axios.get(attempt.url, {
+          params: attempt.params,
+          headers: attempt.headers,
+          timeout: 15000 // 15 second timeout
         });
         
-        console.log(`${service.name} response status:`, response.status);
-        console.log(`${service.name} response data:`, response.data);
+        console.log(`${attempt.name} response status:`, response.status);
         
-        const result = service.parseResponse(response.data);
-        
-        if (result) {
-          console.log(`Successfully geocoded ${cityName} using ${service.name}:`, result);
-          // Cache the result
-          geocodingCache[cityName] = result;
-          return result;
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          // For administrative search, filter for city-like results
+          let candidates = response.data;
+          
+          if (attempt.name === 'Nominatim-Administrative' && candidates.length > 1) {
+            // Filter for city/town/village type results
+            candidates = candidates.filter(item => {
+              const type = item.type || '';
+              const addressType = item.address?.city || item.address?.town || item.address?.village;
+              return type.includes('city') || type.includes('town') || type.includes('village') || addressType;
+            });
+            
+            // If no filtered results, use the first one
+            if (candidates.length === 0) {
+              candidates = [response.data[0]];
+            }
+          }
+          
+          const result = {
+            latitude: parseFloat(candidates[0].lat),
+            longitude: parseFloat(candidates[0].lon),
+            displayName: candidates[0].display_name
+          };
+          
+          // Validate coordinates
+          if (!isNaN(result.latitude) && !isNaN(result.longitude) && 
+              Math.abs(result.latitude) <= 90 && Math.abs(result.longitude) <= 180) {
+            
+            console.log(`Successfully geocoded ${cityName} using ${attempt.name}:`, result);
+            // Cache the result
+            geocodingCache[cityName] = result;
+            return result;
+          } else {
+            console.log(`Invalid coordinates from ${attempt.name}:`, result);
+          }
         } else {
-          console.log(`No results from ${service.name} for: ${cityName}`);
+          console.log(`No results from ${attempt.name} for: ${cityName}`);
         }
         
         // Add delay between service attempts
         await new Promise(resolve => setTimeout(resolve, 500));
         
       } catch (serviceError) {
-        console.error(`Error with ${service.name}:`, serviceError.message);
+        console.error(`Error with ${attempt.name}:`, serviceError.message);
         if (serviceError.response) {
-          console.error(`${service.name} response status:`, serviceError.response.status);
-          console.error(`${service.name} response data:`, serviceError.response.data);
+          console.error(`${attempt.name} response status:`, serviceError.response.status);
         }
         continue; // Try next service
       }
     }
     
-    // If all services fail, try a hardcoded fallback for common cities
+    // If all primary attempts fail, try alternative geocoding service
+    console.log(`Primary geocoding failed, trying alternative service for: ${cityName}`);
+    
+    try {
+      // Try a different geocoding service as backup
+      const backupResponse = await axios.get('https://api.mapbox.com/geocoding/v5/mapbox.places/' + encodeURIComponent(cityName) + '.json', {
+        params: {
+          country: 'us',
+          types: 'place',
+          limit: 1,
+          access_token: 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw' // Public token for testing
+        },
+        timeout: 10000
+      });
+      
+      if (backupResponse.data && backupResponse.data.features && backupResponse.data.features.length > 0) {
+        const feature = backupResponse.data.features[0];
+        const result = {
+          latitude: feature.center[1],
+          longitude: feature.center[0],
+          displayName: feature.place_name
+        };
+        
+        console.log(`Successfully geocoded ${cityName} using Mapbox backup:`, result);
+        geocodingCache[cityName] = result;
+        return result;
+      }
+    } catch (backupError) {
+      console.log('Backup geocoding service also failed:', backupError.message);
+    }
+    
+    // If everything fails, try the hardcoded fallback for common cities
     const commonCities = {
       'philadelphia': { latitude: 39.9526, longitude: -75.1652, displayName: 'Philadelphia, PA, USA' },
+      'bensalem': { latitude: 40.1023, longitude: -74.9510, displayName: 'Bensalem, PA, USA' },
       'new york': { latitude: 40.7128, longitude: -74.0060, displayName: 'New York, NY, USA' },
       'los angeles': { latitude: 34.0522, longitude: -118.2437, displayName: 'Los Angeles, CA, USA' },
       'chicago': { latitude: 41.8781, longitude: -87.6298, displayName: 'Chicago, IL, USA' },
@@ -432,6 +517,75 @@ async function geocodeCity(cityName) {
       const result = commonCities[cityKey];
       geocodingCache[cityName] = result;
       return result;
+    }
+    
+    // Last resort: try to extract state from city name and use state center
+    const cityWithState = cityName.toLowerCase();
+    for (const [abbr, fullName] of Object.entries(stateFullNames)) {
+      if (cityWithState.includes(fullName.toLowerCase()) || cityWithState.includes(abbr.toLowerCase())) {
+        console.log(`Could not find exact city, using state center for: ${fullName}`);
+        const stateCenters = {
+          'Alabama': { latitude: 32.3668, longitude: -86.3000 },
+          'Alaska': { latitude: 61.2181, longitude: -149.9003 },
+          'Arizona': { latitude: 33.4484, longitude: -112.0740 },
+          'Arkansas': { latitude: 34.7465, longitude: -92.2896 },
+          'California': { latitude: 36.7783, longitude: -119.4179 },
+          'Colorado': { latitude: 39.5501, longitude: -105.7821 },
+          'Connecticut': { latitude: 41.5978, longitude: -72.7554 },
+          'Delaware': { latitude: 39.3185, longitude: -75.5071 },
+          'Florida': { latitude: 27.7663, longitude: -81.6868 },
+          'Georgia': { latitude: 33.0406, longitude: -83.6431 },
+          'Hawaii': { latitude: 21.0943, longitude: -157.4983 },
+          'Idaho': { latitude: 44.2405, longitude: -114.4788 },
+          'Illinois': { latitude: 40.3495, longitude: -88.9861 },
+          'Indiana': { latitude: 39.8494, longitude: -86.2583 },
+          'Iowa': { latitude: 42.0115, longitude: -93.2105 },
+          'Kansas': { latitude: 38.5266, longitude: -96.7265 },
+          'Kentucky': { latitude: 37.6681, longitude: -84.6701 },
+          'Louisiana': { latitude: 31.1695, longitude: -91.8678 },
+          'Maine': { latitude: 44.6939, longitude: -69.3819 },
+          'Maryland': { latitude: 39.0639, longitude: -76.8021 },
+          'Massachusetts': { latitude: 42.2373, longitude: -71.5314 },
+          'Michigan': { latitude: 43.3266, longitude: -84.5361 },
+          'Minnesota': { latitude: 45.7326, longitude: -93.9196 },
+          'Mississippi': { latitude: 32.7673, longitude: -89.6812 },
+          'Missouri': { latitude: 38.4561, longitude: -92.2884 },
+          'Montana': { latitude: 47.0527, longitude: -110.2148 },
+          'Nebraska': { latitude: 41.1217, longitude: -98.2620 },
+          'Nevada': { latitude: 38.3135, longitude: -117.0554 },
+          'New Hampshire': { latitude: 43.4525, longitude: -71.5639 },
+          'New Jersey': { latitude: 40.2989, longitude: -74.5210 },
+          'New Mexico': { latitude: 34.8405, longitude: -106.2485 },
+          'New York': { latitude: 42.1657, longitude: -74.9481 },
+          'North Carolina': { latitude: 35.6301, longitude: -79.8064 },
+          'North Dakota': { latitude: 47.5289, longitude: -99.7840 },
+          'Ohio': { latitude: 40.3888, longitude: -82.7649 },
+          'Oklahoma': { latitude: 35.5653, longitude: -96.9289 },
+          'Oregon': { latitude: 44.5672, longitude: -122.1269 },
+          'Pennsylvania': { latitude: 40.5908, longitude: -77.2098 },
+          'Rhode Island': { latitude: 41.6809, longitude: -71.5118 },
+          'South Carolina': { latitude: 33.8560, longitude: -80.9450 },
+          'South Dakota': { latitude: 44.2998, longitude: -99.4388 },
+          'Tennessee': { latitude: 35.7478, longitude: -86.7123 },
+          'Texas': { latitude: 31.0545, longitude: -97.5635 },
+          'Utah': { latitude: 40.1135, longitude: -111.8535 },
+          'Vermont': { latitude: 44.0459, longitude: -72.7107 },
+          'Virginia': { latitude: 37.7693, longitude: -78.2057 },
+          'Washington': { latitude: 47.4009, longitude: -121.4905 },
+          'West Virginia': { latitude: 38.4912, longitude: -80.9540 },
+          'Wisconsin': { latitude: 44.2685, longitude: -89.6165 },
+          'Wyoming': { latitude: 42.7559, longitude: -107.3025 }
+        };
+        
+        if (stateCenters[fullName]) {
+          const result = {
+            ...stateCenters[fullName],
+            displayName: `${fullName} (state center)`
+          };
+          geocodingCache[cityName] = result;
+          return result;
+        }
+      }
     }
     
     console.log(`No coordinates found for: ${cityName}`);
@@ -1266,6 +1420,88 @@ app.get('/debug/geocoding', async (req, res) => {
       city: city,
       error: error.message,
       stack: error.stack
+    });
+  }
+});
+
+// Debug route to check lead coordinates in a specific area
+app.get('/debug/leads-near', ensureDataLoaded, async (req, res) => {
+  const { city, radius } = req.query;
+  
+  if (!city) {
+    return res.json({ error: 'Please provide a city parameter' });
+  }
+  
+  const searchRadius = parseFloat(radius) || 50;
+  
+  try {
+    // Geocode the search city
+    const cityCoordinates = await geocodeCity(city);
+    
+    if (!cityCoordinates) {
+      return res.json({ 
+        error: `Could not geocode city: ${city}`,
+        city: city,
+        radius: searchRadius
+      });
+    }
+    
+    // Find all leads with coordinates
+    const leadsWithCoordinates = leadsData.filter(lead => 
+      lead.Latitude && lead.Longitude && 
+      !isNaN(lead.Latitude) && !isNaN(lead.Longitude)
+    );
+    
+    // Calculate distances and find nearby leads
+    const nearbyLeads = leadsWithCoordinates.map(lead => {
+      const distance = calculateDistance(
+        cityCoordinates.latitude,
+        cityCoordinates.longitude,
+        lead.Latitude,
+        lead.Longitude
+      );
+      
+      return {
+        company: lead.Company,
+        address: lead.Address,
+        latitude: lead.Latitude,
+        longitude: lead.Longitude,
+        distance: distance.toFixed(2)
+      };
+    }).filter(lead => parseFloat(lead.distance) <= searchRadius)
+      .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+    
+    // Also find leads in Pennsylvania (broader search)
+    const paLeads = leadsData.filter(lead => {
+      const address = lead.Address || '';
+      return address.toLowerCase().includes('pennsylvania') || 
+             address.toLowerCase().includes(', pa') ||
+             address.toLowerCase().includes(', pa,');
+    }).map(lead => ({
+      company: lead.Company,
+      address: lead.Address,
+      latitude: lead.Latitude,
+      longitude: lead.Longitude,
+      hasCoordinates: !!(lead.Latitude && lead.Longitude)
+    }));
+    
+    res.json({
+      searchCity: city,
+      searchRadius: searchRadius,
+      cityCoordinates: cityCoordinates,
+      totalLeads: leadsData.length,
+      leadsWithCoordinates: leadsWithCoordinates.length,
+      nearbyLeads: nearbyLeads,
+      nearbyCount: nearbyLeads.length,
+      paLeads: paLeads.slice(0, 20), // Show first 20 PA leads
+      paLeadsTotal: paLeads.length,
+      paLeadsWithCoordinates: paLeads.filter(l => l.hasCoordinates).length
+    });
+  } catch (error) {
+    res.json({
+      error: error.message,
+      city: city,
+      radius: searchRadius
     });
   }
 });
