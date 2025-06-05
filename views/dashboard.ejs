@@ -150,20 +150,6 @@
       box-shadow: 0 4px 12px rgba(65, 201, 199, 0.3);
     }
     
-    .modern-btn-danger {
-      background: rgba(239, 68, 68, 0.1);
-      color: #ef4444;
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      backdrop-filter: blur(10px);
-    }
-    
-    .modern-btn-danger:hover {
-      background: rgba(239, 68, 68, 0.2);
-      border-color: rgba(239, 68, 68, 0.5);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-    }
-    
     /* Animated gradient border */
     .header-divider {
       height: 2px;
@@ -905,23 +891,6 @@
         <div class="header-text">
           <h1 class="header-title">Industrial Growth Insight Tool</h1>
           <p class="header-subtitle">Track Every Move, Spot Every Opportunity</p>
-        </div>
-        <div class="header-actions">
-          <% if (isLoggedIn) { %>
-            <a href="/settings" class="modern-btn modern-btn-primary">
-              <i class="fas fa-cog"></i>
-              <span>Settings</span>
-            </a>
-            <a href="/logout" class="modern-btn modern-btn-danger">
-              <i class="fas fa-sign-out-alt"></i>
-              <span>Logout</span>
-            </a>
-          <% } else { %>
-            <a href="/settings" class="modern-btn modern-btn-primary">
-              <i class="fas fa-cog"></i>
-              <span>Admin</span>
-            </a>
-          <% } %>
         </div>
       </div>
       <div class="header-right">

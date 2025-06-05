@@ -2,8 +2,6 @@ const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const session = require('express-session');
-const bcrypt = require('bcrypt');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -11,12 +9,6 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
-app.use(session({
-  secret: 'your-secret-key',
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false } // Set to true in production with HTTPS
-}));
 
 // View engine
 app.set('view engine', 'ejs');
@@ -120,28 +112,12 @@ if (!fs.existsSync('./public/images')) {
 let leadsData = [];
 
 // SmartSuite API configuration
-let smartsuiteConfig = {
+const smartsuiteConfig = {
   apiKey: 'c5f0367be5ffdc0f0ff804d8bfc1647b3d9abe38',
   appId: '67c735724878712509589af7',
   tableId: '67c8fdfb508eb94c4784fb95',
   accountId: 'sxs77u60'
 };
-
-// Login credentials (should be stored more securely in production)
-const credentials = {
-  username: 'csolimine@encodeset.com',
-  // Password hash for 'Lyneer10!'
-  passwordHash: bcrypt.hashSync('Lyneer10!', 10)
-};
-
-// Authentication middleware - now only required for settings
-function requireLogin(req, res, next) {
-  if (req.session.loggedIn) {
-    next();
-  } else {
-    res.redirect('/login');
-  }
-}
 
 // Load data from SmartSuite API with enhanced debugging and updated endpoint
 async function loadSmartSuiteData() {
@@ -503,11 +479,7 @@ async function loadSmartSuiteData() {
 // Initialize data on startup
 (async function() {
   try {
-    // Load SmartSuite config if stored somewhere (file, env vars, etc.)
-    // This is just a placeholder - implement your preferred method
-    // For example: smartsuiteConfig = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
-    
-    // Then load the data if config is set
+    // Load the data from SmartSuite
     if (smartsuiteConfig.apiKey) {
       leadsData = await loadSmartSuiteData();
     }
@@ -754,7 +726,7 @@ function calculateDashboardMetrics(leads) {
   };
 }
 
-// Main dashboard route - no login required
+// Main dashboard route
 app.get('/', (req, res) => {
   // Generate a complete list of all 50 states
   const states = Object.values(stateFullNames).sort();
@@ -790,7 +762,7 @@ app.get('/', (req, res) => {
   res.render('dashboard', { 
     leads: leadsData,
     states: states,
-    stateFullNames: stateFullNames, // Add this line
+    stateFullNames: stateFullNames,
     totalLeads,
     totalJobs,
     totalActivityTypes,
@@ -799,12 +771,11 @@ app.get('/', (req, res) => {
     stateCounts: dashboardMetrics.stateCounts,
     cityCounts: dashboardMetrics.cityCounts,
     selectedState: null,
-    searchTerm: null,
-    isLoggedIn: req.session.loggedIn || false
+    searchTerm: null
   });
 });
 
-// State filter route - no login required
+// State filter route
 app.get('/filter', (req, res) => {
   const { state } = req.query;
   
@@ -873,12 +844,11 @@ app.get('/filter', (req, res) => {
     stateCounts: dashboardMetrics.stateCounts,
     cityCounts: dashboardMetrics.cityCounts,
     selectedState: state,
-    searchTerm: null,
-    isLoggedIn: req.session.loggedIn || false
+    searchTerm: null
   });
 });
 
-// Company search route - no login required
+// Company search route
 app.get('/search', (req, res) => {
   const { company } = req.query;
   
@@ -913,7 +883,7 @@ app.get('/search', (req, res) => {
   res.render('dashboard', { 
     leads: filteredLeads,
     states: states,
-    stateFullNames: stateFullNames, // Add this line
+    stateFullNames: stateFullNames,
     totalLeads,
     totalJobs,
     totalActivityTypes,
@@ -922,12 +892,11 @@ app.get('/search', (req, res) => {
     stateCounts: dashboardMetrics.stateCounts,
     cityCounts: dashboardMetrics.cityCounts,
     selectedState: null,
-    searchTerm: company, // Pass the search term to the template
-    isLoggedIn: req.session.loggedIn || false
+    searchTerm: company // Pass the search term to the template
   });
 });
 
-// City search route - no login required
+// City search route
 app.get('/city-search', async (req, res) => {
   const { city, radius } = req.query;
   
@@ -976,8 +945,7 @@ app.get('/city-search', async (req, res) => {
         searchTerm: null,
         citySearchTerm: city,
         citySearchRadius: searchRadius,
-        citySearchError: `Could not find coordinates for "${city}". Please try a different city name.`,
-        isLoggedIn: req.session.loggedIn || false
+        citySearchError: `Could not find coordinates for "${city}". Please try a different city name.`
       });
     }
     
@@ -1049,8 +1017,7 @@ app.get('/city-search', async (req, res) => {
       searchTerm: null,
       citySearchTerm: city,
       citySearchRadius: searchRadius,
-      citySearchCoordinates: cityCoordinates,
-      isLoggedIn: req.session.loggedIn || false
+      citySearchCoordinates: cityCoordinates
     });
   } catch (error) {
     console.error('City search error:', error);
@@ -1059,119 +1026,14 @@ app.get('/city-search', async (req, res) => {
   }
 });
 
-// Login routes
-app.get('/login', (req, res) => {
-  res.render('login', { error: null });
-});
-
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  
-  if (username === credentials.username) {
-    const match = await bcrypt.compare(password, credentials.passwordHash);
-    if (match) {
-      req.session.loggedIn = true;
-      
-      // Redirect to settings if they were trying to access settings
-      // Otherwise redirect to dashboard
-      const returnTo = req.session.returnTo || '/';
-      delete req.session.returnTo;
-      return res.redirect(returnTo);
-    }
-  }
-  
-  res.render('login', { error: 'Invalid username or password' });
-});
-
-app.get('/logout', (req, res) => {
-  req.session.destroy();
-  res.redirect('/');
-});
-
-// Settings routes - requires login
-app.get('/settings', (req, res, next) => {
-  if (!req.session.loggedIn) {
-    req.session.returnTo = '/settings';
-    return res.redirect('/login');
-  }
-  next();
-}, (req, res) => {
-  res.render('settings', { 
-    message: null, 
-    config: {
-      apiKey: smartsuiteConfig.apiKey ? '********' : '',
-      appId: smartsuiteConfig.appId,
-      tableId: smartsuiteConfig.tableId,
-      accountId: smartsuiteConfig.accountId
-    }
-  });
-});
-
-// Route to update SmartSuite API settings
-app.post('/update-api-config', requireLogin, async (req, res) => {
-  const { apiKey, appId, tableId, accountId } = req.body;
-  
-  // Update configuration - only update fields that are not empty
-  smartsuiteConfig = {
-    apiKey: apiKey || smartsuiteConfig.apiKey,
-    appId: appId || smartsuiteConfig.appId,
-    tableId: tableId || smartsuiteConfig.tableId,
-    accountId: accountId || smartsuiteConfig.accountId
-  };
-  
-  // Save configuration (implement your preferred method)
-  // For example: fs.writeFileSync('./config.json', JSON.stringify(smartsuiteConfig));
-  
-  try {
-    // Refresh data from API
-    leadsData = await loadSmartSuiteData();
-    res.render('settings', { 
-      message: 'API configuration updated and data refreshed successfully!',
-      config: {
-        apiKey: smartsuiteConfig.apiKey ? '********' : '',
-        appId: smartsuiteConfig.appId,
-        tableId: smartsuiteConfig.tableId,
-        accountId: smartsuiteConfig.accountId
-      }
-    });
-  } catch (error) {
-    console.error('Error updating API config:', error);
-    res.render('settings', { 
-      message: `Error updating API configuration: ${error.message}`,
-      config: {
-        apiKey: smartsuiteConfig.apiKey ? '********' : '',
-        appId: smartsuiteConfig.appId,
-        tableId: smartsuiteConfig.tableId,
-        accountId: smartsuiteConfig.accountId
-      }
-    });
-  }
-});
-
 // Route to manually refresh data
-app.post('/refresh-data', requireLogin, async (req, res) => {
+app.post('/refresh-data', async (req, res) => {
   try {
     leadsData = await loadSmartSuiteData();
-    res.render('settings', { 
-      message: 'Data refreshed successfully!',
-      config: {
-        apiKey: smartsuiteConfig.apiKey ? '********' : '',
-        appId: smartsuiteConfig.appId,
-        tableId: smartsuiteConfig.tableId,
-        accountId: smartsuiteConfig.accountId
-      }
-    });
+    res.json({ success: true, message: 'Data refreshed successfully!' });
   } catch (error) {
     console.error('Error refreshing data:', error);
-    res.render('settings', { 
-      message: `Error refreshing data: ${error.message}`,
-      config: {
-        apiKey: smartsuiteConfig.apiKey ? '********' : '',
-        appId: smartsuiteConfig.appId,
-        tableId: smartsuiteConfig.tableId,
-        accountId: smartsuiteConfig.accountId
-      }
-    });
+    res.status(500).json({ success: false, message: `Error refreshing data: ${error.message}` });
   }
 });
 
@@ -1205,6 +1067,17 @@ app.get('/favicon.ico', (req, res) => {
   }
   res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
 });
+
+// Set up automatic data refresh every 5 minutes
+setInterval(async () => {
+  try {
+    console.log('Auto-refreshing data from SmartSuite...');
+    leadsData = await loadSmartSuiteData();
+    console.log('Auto-refresh completed successfully');
+  } catch (error) {
+    console.error('Error during auto-refresh:', error);
+  }
+}, 5 * 60 * 1000); // 5 minutes in milliseconds
 
 app.listen(port, () => {
   console.log(`Lead Dashboard app listening at http://localhost:${port}`);
