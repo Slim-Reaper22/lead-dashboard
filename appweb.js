@@ -110,19 +110,67 @@ if (!fs.existsSync('./public/images')) {
 
 // Global variable to store the API data
 let leadsData = [];
+let isDataLoaded = false;
+let dataLoadError = null;
+let lastDataRefresh = null;
 
 // SmartSuite API configuration
 const smartsuiteConfig = {
-  apiKey: 'c5f0367be5ffdc0f0ff804d8bfc1647b3d9abe38',
-  appId: '67c735724878712509589af7',
-  tableId: '67c8fdfb508eb94c4784fb95',
-  accountId: 'sxs77u60'
+  apiKey: process.env.SMARTSUITE_API_KEY || 'c5f0367be5ffdc0f0ff804d8bfc1647b3d9abe38',
+  appId: process.env.SMARTSUITE_APP_ID || '67c735724878712509589af7',
+  tableId: process.env.SMARTSUITE_TABLE_ID || '67c8fdfb508eb94c4784fb95',
+  accountId: process.env.SMARTSUITE_ACCOUNT_ID || 'sxs77u60'
 };
+
+// Function to geocode addresses for records without coordinates
+async function geocodeAddressesForRecords(records) {
+  console.log(`Attempting to geocode ${records.length} records...`);
+  
+  // Process records in batches to avoid overwhelming the geocoding service
+  const BATCH_SIZE = 5;
+  const DELAY_MS = 1000; // 1 second delay between batches
+  
+  for (let i = 0; i < records.length; i += BATCH_SIZE) {
+    const batch = records.slice(i, i + BATCH_SIZE);
+    
+    await Promise.all(batch.map(async (record) => {
+      // Only geocode if we don't have coordinates and we have an address
+      if ((!record.Latitude || !record.Longitude) && record.Address) {
+        try {
+          console.log(`Geocoding address: ${record.Address}`);
+          const coords = await geocodeCity(record.Address);
+          
+          if (coords) {
+            record.Latitude = coords.latitude;
+            record.Longitude = coords.longitude;
+            console.log(`Successfully geocoded: ${record.Company} at ${coords.latitude}, ${coords.longitude}`);
+          } else {
+            console.log(`Failed to geocode: ${record.Company}`);
+          }
+        } catch (error) {
+          console.error(`Error geocoding ${record.Company}:`, error.message);
+        }
+      }
+    }));
+    
+    // Add delay between batches to respect rate limits
+    if (i + BATCH_SIZE < records.length) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+    }
+  }
+  
+  // Log final statistics
+  const geocodedCount = records.filter(r => r.Latitude && r.Longitude).length;
+  console.log(`Geocoding complete. ${geocodedCount} out of ${records.length} records now have coordinates.`);
+}
 
 // Load data from SmartSuite API with enhanced debugging and updated endpoint
 async function loadSmartSuiteData() {
+  const requestId = Date.now();
+  console.log(`[${requestId}] Starting SmartSuite data load at ${new Date().toISOString()}`);
+  
   if (!smartsuiteConfig.apiKey || !smartsuiteConfig.tableId) {
-    console.log('SmartSuite configuration incomplete');
+    console.log(`[${requestId}] SmartSuite configuration incomplete`);
     return [];
   }
 
@@ -141,67 +189,16 @@ async function loadSmartSuiteData() {
     const headers = {
       'Authorization': authHeader,
       'Content-Type': 'application/json',
-      'ACCOUNT-ID': smartsuiteConfig.accountId
+      'ACCOUNT-ID': smartsuiteConfig.accountId,
+      'Cache-Control': 'no-cache',
+      'X-Request-ID': requestId.toString()
     };
     
-    // Try a simple request to the base API endpoint first
-    console.log('Attempting direct API connection test...');
-    try {
-      const testResponse = await axios({
-        method: 'GET',
-        url: baseUrl,
-        headers: headers
-      });
-      console.log('Base API endpoint accessible:', testResponse.status);
-    } catch (testError) {
-      console.error('Base API test failed:', testError.message);
-      if (testError.response) {
-        console.error('Status:', testError.response.status);
-        console.error('Data:', testError.response.data);
-      }
-      return []; // If we can't connect to the base API, no need to continue
-    }
-    
-    // List applications to find available ones
-    console.log('Attempting to list all applications...');
-    try {
-      const appsResponse = await axios({
-        method: 'GET',
-        url: `${baseUrl}/applications/`,
-        headers: headers
-      });
-      
-      console.log('Applications list accessible.');
-      if (appsResponse.data && appsResponse.data.items) {
-        console.log(`Found ${appsResponse.data.items.length} applications.`);
-        console.log('Available applications:');
-        appsResponse.data.items.forEach(app => {
-          console.log(`- ID: ${app.id}, Name: ${app.name}`);
-        });
-        
-        // Check if our configured tableId exists in the response
-        const appExists = appsResponse.data.items.some(app => app.id === smartsuiteConfig.tableId);
-        if (appExists) {
-          console.log(`Found matching application ID: ${smartsuiteConfig.tableId}`);
-        } else {
-          console.warn(`WARNING: Configured tableId '${smartsuiteConfig.tableId}' was not found in the list of applications.`);
-        }
-      }
-    } catch (appsError) {
-      console.error('Error listing applications:', appsError.message);
-      if (appsError.response) {
-        console.error('Status:', appsError.response.status);
-        console.error('Data:', appsError.response.data);
-      }
-    }
-    
-    // Now use the CORRECT endpoint for listing records according to the documentation
-    // The documentation shows we need to use POST to /applications/[tableId]/records/list/
-    console.log('Using correct records list endpoint with POST method...');
-    
-    // According to the documentation, tableId is used directly with applications
+    // Log the exact URL and headers being used
     const recordsUrl = `${baseUrl}/applications/${smartsuiteConfig.tableId}/records/list/`;
-    console.log('Using records URL:', recordsUrl);
+    console.log(`[${requestId}] Making request to: ${recordsUrl}`);
+    console.log(`[${requestId}] Using Account ID: ${smartsuiteConfig.accountId}`);
+    console.log(`[${requestId}] Using Table ID: ${smartsuiteConfig.tableId}`);
     
     // Create request body according to the documentation
     const requestBody = {
@@ -214,10 +211,13 @@ async function loadSmartSuiteData() {
       method: 'POST',
       url: recordsUrl,
       headers: headers,
-      data: requestBody
+      data: requestBody,
+      timeout: 30000 // 30 second timeout
     });
 
-    console.log('Successfully fetched records!');
+    console.log(`[${requestId}] Successfully fetched records!`);
+    console.log(`[${requestId}] Response status: ${response.status}`);
+    console.log(`[${requestId}] Number of items: ${response.data.items ? response.data.items.length : 0}`);
     
     // Log the response structure
     console.log('Response structure:', JSON.stringify({
@@ -242,7 +242,7 @@ async function loadSmartSuiteData() {
       return [];
     }
 
-    // Transform the data to match the expected format with the correct field mappings
+    // Transform the data to match the expected format with enhanced coordinate extraction
     const transformedData = response.data.items.map(item => {
       // Get address components and coordinates
       let address = '';
@@ -258,121 +258,193 @@ async function loadSmartSuiteData() {
       if (item.s5d25b0846) {
         const loc = item.s5d25b0846;
         
-        // Try standard format first
-        if (loc.location_address || loc.location_city || loc.location_state) {
-          const parts = [
-            loc.location_address,
-            loc.location_address2,
-            loc.location_city,
-            loc.location_state,
-            loc.location_zip,
-            loc.location_country
-          ].filter(part => part && part.trim() !== '');
+        // Check if it's a SmartSuite location object with nested structure
+        if (typeof loc === 'object') {
+          // Try different possible nested structures
           
-          address = parts.join(', ');
-          
-          // Extract latitude and longitude if available
-          if (loc.location_latitude && loc.location_longitude) {
-            latitude = parseFloat(loc.location_latitude);
-            longitude = parseFloat(loc.location_longitude);
-            console.log(`Found coordinates: ${latitude}, ${longitude}`);
+          // 1. Check for location object with direct lat/lng properties
+          if (loc.latitude !== undefined && loc.longitude !== undefined) {
+            latitude = parseFloat(loc.latitude);
+            longitude = parseFloat(loc.longitude);
+            console.log(`Found coordinates directly: ${latitude}, ${longitude}`);
           }
-        } 
-        // Try alternate format with lat/lng directly in the object
-        else if (loc.latitude !== undefined && loc.longitude !== undefined) {
-          latitude = parseFloat(loc.latitude);
-          longitude = parseFloat(loc.longitude);
-          console.log(`Found coordinates in alternate format: ${latitude}, ${longitude}`);
-          
-          // Try to build address from available fields
-          const addressParts = [];
-          if (loc.address) addressParts.push(loc.address);
-          if (loc.city) addressParts.push(loc.city);
-          if (loc.state) addressParts.push(loc.state);
-          if (loc.zip) addressParts.push(loc.zip);
-          if (loc.country) addressParts.push(loc.country);
-          
-          address = addressParts.join(', ');
-        }
-        // If location is a string with embedded coordinates
-        else if (typeof loc === 'string' && loc.includes(',')) {
-          address = loc;
-          // Try to extract coordinates from string format like "lat,lng"
-          const parts = loc.split(',').map(part => part.trim());
-          if (parts.length >= 2) {
-            const potentialLat = parseFloat(parts[0]);
-            const potentialLng = parseFloat(parts[1]);
-            if (!isNaN(potentialLat) && !isNaN(potentialLng)) {
-              latitude = potentialLat;
-              longitude = potentialLng;
-              console.log(`Extracted coordinates from string: ${latitude}, ${longitude}`);
+          // 2. Check for lat/lng properties (different naming)
+          else if (loc.lat !== undefined && loc.lng !== undefined) {
+            latitude = parseFloat(loc.lat);
+            longitude = parseFloat(loc.lng);
+            console.log(`Found coordinates (lat/lng): ${latitude}, ${longitude}`);
+          }
+          // 3. Check for coordinates array [lng, lat] (GeoJSON format)
+          else if (Array.isArray(loc.coordinates) && loc.coordinates.length >= 2) {
+            longitude = parseFloat(loc.coordinates[0]);
+            latitude = parseFloat(loc.coordinates[1]);
+            console.log(`Found coordinates array (GeoJSON): ${latitude}, ${longitude}`);
+          }
+          // 4. Check for location property that contains coordinates
+          else if (loc.location && typeof loc.location === 'object') {
+            if (loc.location.latitude !== undefined && loc.location.longitude !== undefined) {
+              latitude = parseFloat(loc.location.latitude);
+              longitude = parseFloat(loc.location.longitude);
+              console.log(`Found coordinates in location object: ${latitude}, ${longitude}`);
+            } else if (loc.location.lat !== undefined && loc.location.lng !== undefined) {
+              latitude = parseFloat(loc.location.lat);
+              longitude = parseFloat(loc.location.lng);
+              console.log(`Found coordinates in location object (lat/lng): ${latitude}, ${longitude}`);
             }
           }
-        }
-        // If we have a value property that contains lat/lng
-        else if (loc.value && typeof loc.value === 'object') {
-          if (loc.value.latitude !== undefined && loc.value.longitude !== undefined) {
-            latitude = parseFloat(loc.value.latitude);
-            longitude = parseFloat(loc.value.longitude);
-            console.log(`Found coordinates in value object: ${latitude}, ${longitude}`);
+          // 5. Check for geometry object (GeoJSON style)
+          else if (loc.geometry && loc.geometry.coordinates && Array.isArray(loc.geometry.coordinates)) {
+            if (loc.geometry.coordinates.length >= 2) {
+              longitude = parseFloat(loc.geometry.coordinates[0]);
+              latitude = parseFloat(loc.geometry.coordinates[1]);
+              console.log(`Found coordinates in geometry: ${latitude}, ${longitude}`);
+            }
+          }
+          // 6. Check for place object with location
+          else if (loc.place && typeof loc.place === 'object') {
+            if (loc.place.location && typeof loc.place.location === 'object') {
+              if (loc.place.location.lat !== undefined && loc.place.location.lng !== undefined) {
+                latitude = parseFloat(loc.place.location.lat);
+                longitude = parseFloat(loc.place.location.lng);
+                console.log(`Found coordinates in place.location: ${latitude}, ${longitude}`);
+              }
+            }
+          }
+          // 7. Check for value property containing location data
+          else if (loc.value && typeof loc.value === 'object') {
+            if (loc.value.latitude !== undefined && loc.value.longitude !== undefined) {
+              latitude = parseFloat(loc.value.latitude);
+              longitude = parseFloat(loc.value.longitude);
+              console.log(`Found coordinates in value object: ${latitude}, ${longitude}`);
+            } else if (loc.value.lat !== undefined && loc.value.lng !== undefined) {
+              latitude = parseFloat(loc.value.lat);
+              longitude = parseFloat(loc.value.lng);
+              console.log(`Found coordinates in value object (lat/lng): ${latitude}, ${longitude}`);
+            } else if (loc.value.location && typeof loc.value.location === 'object') {
+              if (loc.value.location.latitude !== undefined && loc.value.location.longitude !== undefined) {
+                latitude = parseFloat(loc.value.location.latitude);
+                longitude = parseFloat(loc.value.location.longitude);
+                console.log(`Found coordinates in value.location: ${latitude}, ${longitude}`);
+              }
+            }
           }
           
-          // Try to build address from value object
-          if (loc.value.formatted_address) {
+          // Build address from various possible fields
+          const addressParts = [];
+          
+          // Check different possible address field structures
+          if (loc.formatted_address) {
+            address = loc.formatted_address;
+          } else if (loc.address) {
+            address = loc.address;
+          } else if (loc.value && loc.value.formatted_address) {
             address = loc.value.formatted_address;
+          } else if (loc.value && loc.value.address) {
+            address = loc.value.address;
+          } else if (loc.location_address || loc.location_city || loc.location_state) {
+            // Original format support
+            const parts = [
+              loc.location_address,
+              loc.location_address2,
+              loc.location_city,
+              loc.location_state,
+              loc.location_zip,
+              loc.location_country
+            ].filter(part => part && part.trim() !== '');
+            
+            address = parts.join(', ');
+            
+            // Extract latitude and longitude if available
+            if (loc.location_latitude && loc.location_longitude) {
+              latitude = parseFloat(loc.location_latitude);
+              longitude = parseFloat(loc.location_longitude);
+              console.log(`Found coordinates in location_ fields: ${latitude}, ${longitude}`);
+            }
+          } else {
+            // Try to build address from components
+            const possibleFields = [
+              loc.street_address, loc.streetAddress, loc.street,
+              loc.location_address, loc.address1, loc.address_1,
+              loc.value?.street_address, loc.value?.address
+            ];
+            
+            const streetAddress = possibleFields.find(field => field && field.trim() !== '');
+            if (streetAddress) addressParts.push(streetAddress);
+            
+            // Add address line 2 if exists
+            const address2Fields = [
+              loc.address2, loc.address_2, loc.location_address2,
+              loc.value?.address2
+            ];
+            const address2 = address2Fields.find(field => field && field.trim() !== '');
+            if (address2) addressParts.push(address2);
+            
+            // Add city
+            const cityFields = [
+              loc.city, loc.location_city, loc.locality,
+              loc.value?.city, loc.value?.locality
+            ];
+            const city = cityFields.find(field => field && field.trim() !== '');
+            if (city) addressParts.push(city);
+            
+            // Add state
+            const stateFields = [
+              loc.state, loc.location_state, loc.region,
+              loc.value?.state, loc.value?.region
+            ];
+            const state = stateFields.find(field => field && field.trim() !== '');
+            if (state) addressParts.push(state);
+            
+            // Add postal code
+            const zipFields = [
+              loc.postal_code, loc.postalCode, loc.zip,
+              loc.location_zip, loc.value?.postal_code
+            ];
+            const zip = zipFields.find(field => field && field.trim() !== '');
+            if (zip) addressParts.push(zip);
+            
+            // Add country
+            const countryFields = [
+              loc.country, loc.location_country,
+              loc.value?.country
+            ];
+            const country = countryFields.find(field => field && field.trim() !== '');
+            if (country) addressParts.push(country);
+            
+            address = addressParts.filter(part => part).join(', ');
+          }
+        }
+        // If location is a string (might be just an address)
+        else if (typeof loc === 'string') {
+          address = loc;
+          // Try to extract coordinates if they're embedded in the string
+          const coordMatch = loc.match(/(-?\d+\.?\d*),\s*(-?\d+\.?\d*)/);
+          if (coordMatch && coordMatch.length === 3) {
+            latitude = parseFloat(coordMatch[1]);
+            longitude = parseFloat(coordMatch[2]);
+            console.log(`Extracted coordinates from string: ${latitude}, ${longitude}`);
           }
         }
       }
       
-      // ATTEMPT TO GEOCODE FROM ADDRESS IF NO COORDINATES FOUND
-      // This is a simplified example - for production, you would use a real geocoding service
-      if (!latitude || !longitude) {
-        // Check if we can extract coordinates from an address that might contain them
-        if (address && typeof address === 'string') {
-          // Look for patterns like "123 Main St, City, ST 12345 (40.123, -74.456)"
-          const coordMatch = address.match(/\((-?\d+\.?\d*),\s*(-?\d+\.?\d*)\)/);
-          if (coordMatch && coordMatch.length === 3) {
-            latitude = parseFloat(coordMatch[1]);
-            longitude = parseFloat(coordMatch[2]);
-            console.log(`Extracted coordinates from address string: ${latitude}, ${longitude}`);
-          }
+      // Validate coordinates
+      if (latitude !== null && longitude !== null) {
+        // Check if coordinates are valid (within reasonable bounds)
+        if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+          console.warn(`Invalid coordinates detected: ${latitude}, ${longitude} - resetting to null`);
+          latitude = null;
+          longitude = null;
+        } else if (isNaN(latitude) || isNaN(longitude)) {
+          console.warn(`NaN coordinates detected: ${latitude}, ${longitude} - resetting to null`);
+          latitude = null;
+          longitude = null;
         }
-        
-        // Additional fallback for specific states - add approximate coordinates
-        // This is just a simple fallback example
-        if (!latitude && !longitude && address) {
-          // Check for state names in the address and assign approximate center coordinates
-          Object.entries(stateFullNames).forEach(([abbr, fullName]) => {
-            if (address.includes(fullName) || address.includes(`, ${abbr},`)) {
-              // These are very approximate center points for states - replace with accurate data
-              const stateCoords = {
-                'AL': [32.806671, -86.791130], 'AK': [61.370716, -152.404419], 'AZ': [33.729759, -111.431221],
-                'AR': [34.969704, -92.373123], 'CA': [36.116203, -119.681564], 'CO': [39.059811, -105.311104],
-                'CT': [41.597782, -72.755371], 'DE': [39.318523, -75.507141], 'FL': [27.766279, -81.686783],
-                'GA': [33.040619, -83.643074], 'HI': [21.094318, -157.498337], 'ID': [44.240459, -114.478828],
-                'IL': [40.349457, -88.986137], 'IN': [39.849426, -86.258278], 'IA': [42.011539, -93.210526],
-                'KS': [38.526600, -96.726486], 'KY': [37.668140, -84.670067], 'LA': [31.169546, -91.867805],
-                'ME': [44.693947, -69.381927], 'MD': [39.063946, -76.802101], 'MA': [42.230171, -71.530106],
-                'MI': [43.326618, -84.536095], 'MN': [45.694454, -93.900192], 'MS': [32.741646, -89.678696],
-                'MO': [38.456085, -92.288368], 'MT': [46.921925, -110.454353], 'NE': [41.125370, -98.268082],
-                'NV': [38.313515, -117.055374], 'NH': [43.452492, -71.563896], 'NJ': [40.298904, -74.521011],
-                'NM': [34.840515, -106.248482], 'NY': [42.165726, -74.948051], 'NC': [35.630066, -79.806419],
-                'ND': [47.528912, -99.784012], 'OH': [40.388783, -82.764915], 'OK': [35.565342, -96.928917],
-                'OR': [44.572021, -122.070938], 'PA': [40.590752, -77.209755], 'RI': [41.680893, -71.511780],
-                'SC': [33.856892, -80.945007], 'SD': [44.299782, -99.438828], 'TN': [35.747845, -86.692345],
-                'TX': [31.054487, -97.563461], 'UT': [40.150032, -111.862434], 'VT': [44.045876, -72.710686],
-                'VA': [37.769337, -78.169968], 'WA': [47.400902, -121.490494], 'WV': [38.491226, -80.954453],
-                'WI': [44.268543, -89.616508], 'WY': [42.755966, -107.302490]
-              };
-              
-              if (stateCoords[abbr]) {
-                [latitude, longitude] = stateCoords[abbr];
-                console.log(`Using approximate coordinates for state ${fullName}: ${latitude}, ${longitude}`);
-              }
-            }
-          });
-        }
-      }   
+      }
+      
+      // If we still don't have coordinates but have an address, log it
+      if ((!latitude || !longitude) && address) {
+        console.log(`No coordinates for address: ${address}`);
+      }
       
       // Extract the new fields for multi-select fields
       let siteType = '';
@@ -382,13 +454,10 @@ async function loadSmartSuiteData() {
       // Site Type field - using s91e2ac54c (confirmed)
       if (item.s91e2ac54c) {
         if (Array.isArray(item.s91e2ac54c)) {
-          // Handle array of selected values
           siteType = item.s91e2ac54c.map(val => val.label || val).join(', ');
         } else if (typeof item.s91e2ac54c === 'object' && item.s91e2ac54c.label) {
-          // Handle single selected value with label
           siteType = item.s91e2ac54c.label;
         } else if (typeof item.s91e2ac54c === 'object' && item.s91e2ac54c.values) {
-          // Handle values property
           siteType = Array.isArray(item.s91e2ac54c.values) 
             ? item.s91e2ac54c.values.map(val => val.label || val).join(', ')
             : item.s91e2ac54c.values;
@@ -400,13 +469,10 @@ async function loadSmartSuiteData() {
       // Specialized Industry Site field - using s21hlm59
       if (item.s21hlm59) {
         if (Array.isArray(item.s21hlm59)) {
-          // Handle array of selected values
           specializedIndustrySite = item.s21hlm59.map(val => val.label || val).join(', ');
         } else if (typeof item.s21hlm59 === 'object' && item.s21hlm59.label) {
-          // Handle single selected value with label
           specializedIndustrySite = item.s21hlm59.label;
         } else if (typeof item.s21hlm59 === 'object' && item.s21hlm59.values) {
-          // Handle values property
           specializedIndustrySite = Array.isArray(item.s21hlm59.values) 
             ? item.s21hlm59.values.map(val => val.label || val).join(', ')
             : item.s21hlm59.values;
@@ -418,13 +484,10 @@ async function loadSmartSuiteData() {
       // O*NET Industry Site field - using s5530473fb (confirmed)
       if (item.s5530473fb) {
         if (Array.isArray(item.s5530473fb)) {
-          // Handle array of selected values
           onetIndustrySite = item.s5530473fb.map(val => val.label || val).join(', ');
         } else if (typeof item.s5530473fb === 'object' && item.s5530473fb.label) {
-          // Handle single selected value with label
           onetIndustrySite = item.s5530473fb.label;
         } else if (typeof item.s5530473fb === 'object' && item.s5530473fb.values) {
-          // Handle values property
           onetIndustrySite = Array.isArray(item.s5530473fb.values) 
             ? item.s5530473fb.values.map(val => val.label || val).join(', ')
             : item.s5530473fb.values;
@@ -443,7 +506,6 @@ async function loadSmartSuiteData() {
         'Timeframe': item.s8a9285317 ? item.s8a9285317.label : '',
         'General Lead Summary': item.s54a8cc7de || '',
         'About': item.sb7f0cac0e || '',
-        // Add the new fields
         'Site Type': siteType,
         'Specialized Industry Site': specializedIndustrySite,
         'O*NET Industry Site': onetIndustrySite
@@ -457,33 +519,95 @@ async function loadSmartSuiteData() {
       console.log('Sample transformed record:', transformedData[0]);
     }
     
-    // Log how many records have valid coordinates
-    const validCoordinates = transformedData.filter(item => 
+    // Log how many records have valid coordinates BEFORE geocoding
+    const validCoordinatesBeforeGeocoding = transformedData.filter(item => 
       item.Latitude && item.Longitude && 
       !isNaN(item.Latitude) && !isNaN(item.Longitude)
     ).length;
     
-    console.log(`Found ${validCoordinates} records with valid coordinates out of ${transformedData.length} total records`);
+    console.log(`Found ${validCoordinatesBeforeGeocoding} records with valid coordinates from SmartSuite`);
     
+    // If we have records without coordinates, attempt to geocode them
+    const recordsWithoutCoordinates = transformedData.filter(item => 
+      (!item.Latitude || !item.Longitude) && item.Address
+    );
+    
+    if (recordsWithoutCoordinates.length > 0) {
+      console.log(`Found ${recordsWithoutCoordinates.length} records without coordinates but with addresses`);
+      
+      // Only geocode a limited number to avoid rate limits
+      const MAX_GEOCODE = 20; // Adjust based on your needs
+      if (recordsWithoutCoordinates.length > MAX_GEOCODE) {
+        console.log(`Limiting geocoding to first ${MAX_GEOCODE} records to avoid rate limits`);
+        await geocodeAddressesForRecords(recordsWithoutCoordinates.slice(0, MAX_GEOCODE));
+      } else {
+        await geocodeAddressesForRecords(recordsWithoutCoordinates);
+      }
+    }
+    
+    // Log how many records have valid coordinates AFTER geocoding
+    const validCoordinatesAfterGeocoding = transformedData.filter(item => 
+      item.Latitude && item.Longitude && 
+      !isNaN(item.Latitude) && !isNaN(item.Longitude)
+    ).length;
+    
+    console.log(`After geocoding: ${validCoordinatesAfterGeocoding} records with valid coordinates out of ${transformedData.length} total records`);
+    
+    lastDataRefresh = new Date().toISOString();
     return transformedData;
   } catch (error) {
-    console.error('Error fetching data from SmartSuite API:', error.message);
-    if (error.response) {
-      console.error('Status:', error.response.status);
-      console.error('Data:', error.response.data);
-    }
-    return [];
+    console.error(`[${requestId}] Error fetching data from SmartSuite API:`, error.message);
+    console.error(`[${requestId}] Error details:`, {
+      message: error.message,
+      code: error.code,
+      response: error.response ? {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      } : 'No response'
+    });
+    throw error;
   }
+}
+
+// Middleware to check if data is loaded
+function ensureDataLoaded(req, res, next) {
+  if (!isDataLoaded) {
+    if (dataLoadError) {
+      return res.status(500).send(`
+        <div style="padding: 20px; font-family: Arial; text-align: center;">
+          <h1>Failed to load data from SmartSuite</h1>
+          <p>Error: ${dataLoadError}</p>
+          <p>Please check your configuration and try again.</p>
+        </div>
+      `);
+    }
+    return res.status(503).send(`
+      <div style="padding: 20px; font-family: Arial; text-align: center;">
+        <h1>Application is starting up...</h1>
+        <p>Please refresh this page in a moment.</p>
+        <script>setTimeout(() => location.reload(), 3000);</script>
+      </div>
+    `);
+  }
+  next();
 }
 
 // Initialize data on startup
 (async function() {
   try {
+    console.log('Starting data initialization...');
     // Load the data from SmartSuite
     if (smartsuiteConfig.apiKey) {
       leadsData = await loadSmartSuiteData();
+      isDataLoaded = true;
+      console.log('Data initialization complete');
+    } else {
+      dataLoadError = 'SmartSuite API key not configured';
+      console.error(dataLoadError);
     }
   } catch (error) {
+    dataLoadError = error.message;
     console.error('Error loading initial data:', error);
   }
 })();
@@ -726,8 +850,122 @@ function calculateDashboardMetrics(leads) {
   };
 }
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  const status = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    node_version: process.version,
+    memory_usage: process.memoryUsage(),
+    data: {
+      loaded: isDataLoaded,
+      total_records: leadsData.length,
+      records_with_coordinates: leadsData.filter(l => l.Latitude && l.Longitude).length,
+      last_refresh: lastDataRefresh || 'never'
+    },
+    smartsuite_config: {
+      has_api_key: !!smartsuiteConfig.apiKey,
+      account_id: smartsuiteConfig.accountId,
+      table_id: smartsuiteConfig.tableId
+    }
+  };
+  
+  res.json(status);
+});
+
+// Debug route to see raw SmartSuite data structure
+app.get('/debug/smartsuite-data', async (req, res) => {
+  try {
+    // Only allow in development or with a secret key
+    const debugKey = req.query.key;
+    if (debugKey !== 'debug-2025') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    // Get one record from SmartSuite to inspect structure
+    const authHeader = `Token ${smartsuiteConfig.apiKey}`;
+    const baseUrl = 'https://app.smartsuite.com/api/v1';
+    
+    const headers = {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json',
+      'ACCOUNT-ID': smartsuiteConfig.accountId
+    };
+    
+    const recordsUrl = `${baseUrl}/applications/${smartsuiteConfig.tableId}/records/list/`;
+    
+    const response = await axios({
+      method: 'POST',
+      url: recordsUrl,
+      headers: headers,
+      data: {
+        sort: [],
+        filter: {},
+        hydrated: true,
+        limit: 1 // Just get one record
+      }
+    });
+    
+    if (response.data.items && response.data.items.length > 0) {
+      const sampleRecord = response.data.items[0];
+      
+      // Specifically look at the location field
+      const locationField = sampleRecord.s5d25b0846;
+      
+      res.json({
+        success: true,
+        message: 'Sample record structure',
+        record: sampleRecord,
+        locationField: locationField,
+        locationFieldType: typeof locationField,
+        locationFieldKeys: locationField && typeof locationField === 'object' ? Object.keys(locationField) : null
+      });
+    } else {
+      res.json({
+        success: false,
+        message: 'No records found'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Also add a route to check current loaded data
+app.get('/debug/current-data', (req, res) => {
+  // Only allow in development or with a secret key
+  const debugKey = req.query.key;
+  if (debugKey !== 'debug-2025') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+  
+  const summary = {
+    totalRecords: leadsData.length,
+    recordsWithCoordinates: leadsData.filter(lead => 
+      lead.Latitude && lead.Longitude && 
+      !isNaN(lead.Latitude) && !isNaN(lead.Longitude)
+    ).length,
+    recordsWithoutCoordinates: leadsData.filter(lead => 
+      !lead.Latitude || !lead.Longitude
+    ).length,
+    sampleRecords: leadsData.slice(0, 3).map(lead => ({
+      company: lead.Company,
+      address: lead.Address,
+      latitude: lead.Latitude,
+      longitude: lead.Longitude
+    }))
+  };
+  
+  res.json(summary);
+});
+
 // Main dashboard route
-app.get('/', (req, res) => {
+app.get('/', ensureDataLoaded, (req, res) => {
   // Generate a complete list of all 50 states
   const states = Object.values(stateFullNames).sort();
   
@@ -776,7 +1014,7 @@ app.get('/', (req, res) => {
 });
 
 // State filter route
-app.get('/filter', (req, res) => {
+app.get('/filter', ensureDataLoaded, (req, res) => {
   const { state } = req.query;
   
   // Generate a complete list of all 50 states
@@ -849,7 +1087,7 @@ app.get('/filter', (req, res) => {
 });
 
 // Company search route
-app.get('/search', (req, res) => {
+app.get('/search', ensureDataLoaded, (req, res) => {
   const { company } = req.query;
   
   // Generate a complete list of all 50 states
@@ -896,11 +1134,17 @@ app.get('/search', (req, res) => {
   });
 });
 
-// City search route
-app.get('/city-search', async (req, res) => {
+// City search route with enhanced debugging
+app.get('/city-search', ensureDataLoaded, async (req, res) => {
   const { city, radius } = req.query;
   
+  console.log('=== CITY SEARCH DEBUG ===');
+  console.log('Query params:', { city, radius });
+  console.log('Total leads in memory:', leadsData.length);
+  console.log('Leads with coordinates:', leadsData.filter(l => l.Latitude && l.Longitude).length);
+  
   if (!city || city.trim() === '') {
+    console.log('No city provided, redirecting to home');
     return res.redirect('/');
   }
   
@@ -909,9 +1153,12 @@ app.get('/city-search', async (req, res) => {
   
   try {
     // Geocode the city to get coordinates
+    console.log('Geocoding city:', city);
     const cityCoordinates = await geocodeCity(city);
+    console.log('Geocoding result:', cityCoordinates);
     
     if (!cityCoordinates) {
+      console.log('Geocoding failed for city:', city);
       // If geocoding fails, render with error message
       const states = Object.values(stateFullNames).sort();
       
@@ -949,6 +1196,18 @@ app.get('/city-search', async (req, res) => {
       });
     }
     
+    // Log sample leads to see their coordinate format
+    console.log('Sample leads with coordinates:');
+    leadsData.filter(l => l.Latitude && l.Longitude).slice(0, 3).forEach(lead => {
+      console.log({
+        company: lead.Company,
+        lat: lead.Latitude,
+        lng: lead.Longitude,
+        latType: typeof lead.Latitude,
+        lngType: typeof lead.Longitude
+      });
+    });
+    
     // Filter leads within the specified radius - create copies to avoid modifying original data
     const filteredLeads = leadsData.filter(lead => {
       // Skip leads without coordinates
@@ -980,6 +1239,9 @@ app.get('/city-search', async (req, res) => {
         distance: distance.toFixed(1)
       };
     });
+    
+    console.log('Filtered leads count:', filteredLeads.length);
+    console.log('=== END CITY SEARCH DEBUG ===');
     
     // Sort by distance (closest first)
     filteredLeads.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
@@ -1021,6 +1283,7 @@ app.get('/city-search', async (req, res) => {
     });
   } catch (error) {
     console.error('City search error:', error);
+    console.error('Stack trace:', error.stack);
     // If there's an error, redirect to the home page
     res.redirect('/');
   }
@@ -1038,7 +1301,7 @@ app.post('/refresh-data', async (req, res) => {
 });
 
 // API route for dashboard data (for potential AJAX updates)
-app.get('/api/dashboard-data', (req, res) => {
+app.get('/api/dashboard-data', ensureDataLoaded, (req, res) => {
   // Calculate summary metrics
   const totalLeads = leadsData.length;
   const totalJobs = leadsData.reduce((sum, lead) => sum + (parseInt(lead['Estimated New Jobs']) || 0), 0);
@@ -1081,4 +1344,7 @@ setInterval(async () => {
 
 app.listen(port, () => {
   console.log(`Lead Dashboard app listening at http://localhost:${port}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Using SmartSuite Account ID: ${smartsuiteConfig.accountId}`);
+  console.log(`Using SmartSuite Table ID: ${smartsuiteConfig.tableId}`);
 });
