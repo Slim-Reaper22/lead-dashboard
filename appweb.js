@@ -39,7 +39,7 @@ const stateFullNames = {
 // Geocoding cache to avoid repeated API calls
 const geocodingCache = {};
 
-// Simplified geocoding function using Photon (Komoot) API
+// Fixed geocoding function using correct Photon API parameters
 async function geocodeCity(cityName) {
   // Check cache first
   if (geocodingCache[cityName]) {
@@ -50,13 +50,13 @@ async function geocodeCity(cityName) {
   try {
     console.log(`Geocoding: ${cityName}`);
     
-    // Try Photon API first (free, no key needed)
+    // Try Photon API with correct parameters
     const response = await axios.get('https://photon.komoot.io/api/', {
       params: {
-        q: cityName,
+        q: `${cityName}, USA`,  // Include USA in the query
         limit: 1,
-        lang: 'en',
-        countrycodes: 'US'  // Restrict to US only
+        lang: 'en'
+        // Note: Photon doesn't support 'countrycodes' parameter
       },
       timeout: 10000,
       headers: {
@@ -74,8 +74,14 @@ async function geocodeCity(cityName) {
       let displayName = props.name || cityName;
       if (props.state) {
         displayName += `, ${props.state}`;
+      } else if (props.city) {
+        displayName += `, ${props.city}`;
       }
-      displayName += ', USA';
+      if (props.country) {
+        displayName += `, ${props.country}`;
+      } else {
+        displayName += ', USA';
+      }
       
       const result = {
         latitude: coords[1],
@@ -99,6 +105,7 @@ async function geocodeCity(cityName) {
   
   // Fallback to hardcoded common cities
   const commonCities = {
+    'trenton': { latitude: 40.2171, longitude: -74.7429, displayName: 'Trenton, NJ, USA' },
     'philadelphia': { latitude: 39.9526, longitude: -75.1652, displayName: 'Philadelphia, PA, USA' },
     'bensalem': { latitude: 40.1023, longitude: -74.9510, displayName: 'Bensalem, PA, USA' },
     'new york': { latitude: 40.7128, longitude: -74.0060, displayName: 'New York, NY, USA' },
@@ -966,7 +973,8 @@ app.get('/health', (req, res) => {
       has_api_key: !!smartsuiteConfig.apiKey,
       account_id: smartsuiteConfig.accountId,
       table_id: smartsuiteConfig.tableId
-    }
+    },
+    geocoding_service: 'Photon (Komoot) - Free API'
   };
   
   res.json(status);
@@ -1000,6 +1008,56 @@ app.get('/debug/geocoding', async (req, res) => {
       city: city,
       error: error.message,
       stack: error.stack
+    });
+  }
+});
+
+// Test geocoding directly
+app.get('/test-geocoding', async (req, res) => {
+  const city = req.query.city || 'trenton';
+  
+  console.log(`Testing geocoding for: ${city}`);
+  
+  try {
+    // Test Photon API directly
+    const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(city + ', USA')}&limit=1&lang=en`;
+    console.log(`Calling Photon API: ${photonUrl}`);
+    
+    const response = await axios.get(photonUrl, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'LocationLeadDashboard/1.0',
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log('Photon response status:', response.status);
+    console.log('Photon response data:', JSON.stringify(response.data, null, 2));
+    
+    // Also test your geocodeCity function
+    const geocodeResult = await geocodeCity(city);
+    
+    res.json({
+      city: city,
+      photonApiUrl: photonUrl,
+      photonRawResponse: response.data,
+      geocodeCityResult: geocodeResult,
+      cacheSize: Object.keys(geocodingCache).length,
+      environment: process.env.NODE_ENV,
+      nodeVersion: process.version
+    });
+    
+  } catch (error) {
+    console.error('Test geocoding error:', error);
+    res.json({
+      city: city,
+      error: error.message,
+      stack: error.stack,
+      code: error.code,
+      response: error.response ? {
+        status: error.response.status,
+        data: error.response.data
+      } : 'No response'
     });
   }
 });
